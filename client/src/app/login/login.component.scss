@@ -1,0 +1,27 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.card {
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+}
+
+.brand {
+  margin: 16px 0 8px;
+  font-weight: 500;
+}
+
+.tagline {
+  margin: 0 0 24px;
+}
+
+.sign-in {
+  margin-bottom: 16px;
+}
