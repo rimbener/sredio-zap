@@ -1,0 +1,25 @@
+# F3. Server skeleton: env, middleware, errors, Mongo, session, test harness
+
+- **Goal:** A running Express 5 app with the documented middleware order, error envelope and session store, that every server slice plugs routers into.
+- **Scope in:**
+  - Env loading: `import 'dotenv/config'` as the **first** import of `src/index.ts`, loading `server/.env` (the cwd when run via `npm run … -w server`). Set `DOTENV_CONFIG_QUIET=true` (or `quiet: true`) so dotenv doesn't log on startup. dotenv never overrides variables already set in the environment, so tests set `NODE_ENV=test` and pass the in-memory Mongo URI themselves, never reading `.env`'s `MONGODB_URI`.
+  - Replace the boilerplate `smee` script (which reads `SMEE_URL`) with `tsx scripts/smee.ts`: a tiny script that does `import 'dotenv/config'` and starts smee-client's `Client` with `source: WEBHOOK_PUBLIC_URL`, `target: http://localhost:3000/webhooks/github`. Drop the `SMEE_URL` note from `.env.example`.
+  - Env validation with zod for all vars in API.md → Configuration; refuse to start on a missing/invalid var (including `TOKEN_ENCRYPTION_KEY` decoding to 32 bytes).
+  - Single `mongoose.connect()` promise; startup awaits it before `listen`; `connect-mongo` v5 store with `clientPromise: conn.then(m => m.connection.getClient())`, `ttl` 7 days.
+  - `createApp()` with middleware in API.md order: helmet, cors (`CLIENT_URL`, credentials), `/webhooks` mount point (raw), `express.json()`, session (`zaps.sid`, httpOnly, sameSite lax, 7 days), passport initialize/session, `/auth` mount point, `/api` router with `requireAuth` and `requireJson` (POST/PATCH only), 404 handler, error handler.
+  - `shared/src/errors.ts`: error code union and envelope type. Server `AppError` class (status, code, message, details). Error handler maps zod errors → `400 VALIDATION_ERROR` with issues, `AppError` → its envelope, anything else → `500 INTERNAL_ERROR` without stack.
+  - `requireAuth` → `401 UNAUTHENTICATED`; `requireJson` → `415 UNSUPPORTED_MEDIA_TYPE`.
+  - `User` model (`githubId` unique, `login`, `name`, `avatarUrl`, `accessToken` as `EncryptedValue` subdocument, timestamps) and passport `serializeUser`/`deserializeUser` by `_id`.
+  - Test harness (see Tech-Stack.md → Testing approach): a helper that starts `mongodb-memory-server`, connects Mongoose and the session store to it, clears collections before each test and stops it after; and `createApp({ authenticateAs })`, a test-only option that sets `req.user` right after `passport.session()` so `requireAuth` passes. The production entry never passes it.
+- **Scope out:** OAuth strategy and routes (S1), `endSession` (S2), GitHub error mapping (E3/E2).
+- **Touches:** server: `src/index.ts`, `src/app.ts`, `src/env.ts`, `src/db.ts`, `src/errors/*`, `src/middleware/*`, `src/models/user.ts`, `src/routes/api/index.ts`, `src/test/*`; shared: `errors.ts`.
+- **Depends on:** —
+- **Doc refs:** API.md → Conventions, Errors, Middleware order, Configuration; Tech-Stack.md → Server (express-session, connect-mongo, passport), Database; Data-model.md → `users`, `sessions`.
+- **Acceptance (node:test + supertest):**
+  - Env: missing var / bad key length → startup function throws.
+  - `GET /api/anything` without session → `401` with `UNAUTHENTICATED` envelope.
+  - Authenticated `POST` to a test route with `text/plain` → `415`; with JSON → passes. `DELETE` without body passes.
+  - Unknown route → `404 NOT_FOUND` envelope. A thrown error → `500 INTERNAL_ERROR`, no stack in body.
+  - CORS: preflight from `CLIENT_URL` allowed with credentials; another origin not allowed.
+  - Manual: `npm run dev -w server` starts against docker Mongo and refuses to start when a var is removed from `.env`. `index.ts` never passes `authenticateAs`.
+- **Size:** L

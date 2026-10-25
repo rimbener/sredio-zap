@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. It was built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`, docs `D1`); the happy path and most edge cases are done. `README.md` is the user-facing setup, usage and troubleshooting guide. The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
+"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. It was built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`, docs `D1`); all of its tasks are done. Each task's details now live in its own file in `tasks/done/` (`<ID>-<slug>.md`), and `docs/Tasks.md` keeps the overview with a link to each. `README.md` is the user-facing setup, usage and troubleshooting guide. The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
 
 - `docs/PRD.md`: scope. `docs/Tech-Stack.md`: versions, libraries, testing approach, GitHub integration.
 - `docs/Data-model.md`: collections, lifecycle rules, webhook processing / run dedupe.
 - `docs/API.md`: endpoints, error envelope and codes, middleware order, env vars.
 - `docs/Screens.md`: routes, builder behavior, client error handling, component layout.
-- `docs/Tasks.md`: task breakdown, dependencies, and **Conflict notes** (which task owns which file). Gaps in the spec are listed under "Spec gaps"; don't invent behavior.
+- `docs/Tasks.md`: task summary, dependencies, waves, and **Conflict notes** (which task owns which file). Gaps in the spec are listed under "Spec gaps"; don't invent behavior.
 
 `docs/history.md` is a prompt/response log appended automatically by hooks in `.claude/hooks/`; don't edit it.
 
