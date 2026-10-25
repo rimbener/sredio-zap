@@ -1,6 +1,8 @@
 import type { ApiErrorEnvelope, ValidationIssue } from '@zaps/shared';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { SESSION_COOKIE_NAME } from '../app.js';
+import { endSession } from '../auth/end-session.js';
 import { AppError, NotFoundError } from './app-error.js';
 
 /** body-parser errors carry a `type` and an HTTP `status`. */
@@ -23,8 +25,10 @@ export const notFoundHandler: RequestHandler = (_req, _res, next) => {
  * Maps errors to the envelope (API.md → Errors):
  * zod → 400 VALIDATION_ERROR, AppError → its own envelope,
  * body-parser over-limit → 413, anything else → 500 without internals.
+ * `GITHUB_AUTH_REQUIRED` first ends the session with `endSession` (E2), so the user is
+ * really signed out before the `401` is sent.
  */
-export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+export const errorHandler: ErrorRequestHandler = async (err, req, res, next) => {
   if (res.headersSent) {
     next(err);
     return;
@@ -36,6 +40,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   if (err instanceof AppError) {
     status = err.status;
     body = err.toEnvelope();
+    if (err.code === 'GITHUB_AUTH_REQUIRED') {
+      try {
+        await endSession(req, res);
+      } catch (sessionErr) {
+        // Still answer 401 GITHUB_AUTH_REQUIRED: the client signs the user out either way.
+        if (process.env.NODE_ENV !== 'test') console.error(sessionErr);
+        res.clearCookie(SESSION_COOKIE_NAME);
+      }
+    }
   } else if (err instanceof ZodError) {
     status = 400;
     body = { error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: toIssues(err) } };
