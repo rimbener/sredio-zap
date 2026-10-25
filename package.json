@@ -1,0 +1,23 @@
+{
+  "name": "zaps",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:shared": "npm run dev -w shared",
+    "dev:server": "npm run build -w shared && npm run dev -w server",
+    "dev:client": "npm run build -w shared && npm run start -w client",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "test": "npm run test -w shared && npm run test -w server && npm run test -w client -- --watch=false --browsers=ChromeHeadless",
+    "smee": "npm run smee -w server"
+  },
+  "engines": {
+    "node": ">=18.20 <19"
+  },
+  "overrides": {
+    "@types/express": "^5.0.6"
+  }
+}
