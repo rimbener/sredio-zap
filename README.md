@@ -13,8 +13,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Screens.md](docs/Screens.md) | Routes, wireframes, builder behavior, error handling |
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 
-> **Status:** the app is being built slice by slice (see [Tasks.md](docs/Tasks.md)). The happy-path slices S1–S10 are done:
-> - `npm run dev:server` serves every route in [API.md](docs/API.md): GitHub sign-in (`/auth/github`), sign-out (`POST /auth/logout`), `GET /api/me`, `GET /api/apps`, `GET /api/github/repos`, `GET /api/zaps`, `POST /api/zaps`, `GET`/`PATCH`/`DELETE /api/zaps/:id`, `POST /api/zaps/:id/enable` and `/disable`, `GET /api/zaps/:id/runs` and the webhook receiver `POST /webhooks/github`.
+**What you can do:** sign in with GitHub; list, create, edit, turn on/off and delete Zaps; pick a public repo you admin as the trigger; write the comment with fields from the pull request (`{{pr.title}}`, `{{pr.author}}`, …) and a live preview. There's no run history screen; runs are readable through `GET /api/zaps/:id/runs` (see [Troubleshooting](#troubleshooting)).
 
 ## Prerequisites
 
@@ -108,6 +107,16 @@ Use four terminals, all from the repo root (run `nvm use` in each):
 5. Click **Save**, then turn the Zap **on**. This creates a webhook on the repo.
 6. Open a pull request on that repo. The comment appears on it within a few seconds.
 
+You can edit a Zap while it's on; the builder then shows "This Zap is on. Saving changes to the repository moves its webhook." If you change its repo, Save creates a webhook on the new repo first, then removes the old one. A change in letter case only (`Acme/API` vs `acme/api`) isn't a move. If the new repo still has an old webhook from this Zap, Save shows a dialog linking to it: delete it on GitHub and save again (see [Troubleshooting](#this-repo-still-has-an-old-webhook-from-this-zap)).
+
+### How a Zap works
+
+1. **Turning a Zap on** creates a webhook on its repo for `pull_request` events, pointing at `WEBHOOK_PUBLIC_URL?zap=<zapId>` with a fresh random secret. The hook's id and the encrypted secret are stored on the Zap. Turning it off (or deleting it) removes the webhook, best-effort.
+2. **When a PR is opened**, GitHub posts to the smee channel and `npm run smee` forwards the delivery to `POST /webhooks/github`.
+3. **The receiver** finds the Zap by the `X-GitHub-Hook-ID` header and verifies `X-Hub-Signature-256` against the raw body with that Zap's secret. Unknown hooks, disabled Zaps, `ping` and any action other than `opened` are acknowledged with `204` and not recorded; a bad signature gets `401`.
+4. It records a **run** as `pending` (keyed by `X-GitHub-Delivery`, so a delivery is processed once), renders the comment template with the PR's fields (cut to 65,536 characters if needed), and posts the comment with the Zap owner's GitHub token.
+5. The run becomes `success` (with the comment URL) or `failed` (with the error). The receiver answers `200` either way; a failed comment is never a `5xx`. Runs are kept for 7 days.
+
 ## Tests
 
 ```sh
@@ -115,6 +124,10 @@ npm test                 # shared, then server, then client
 npm test -w shared       # shared only
 npm test -w server       # server only
 npm test -w client       # client only (Karma, watch mode)
+
+# one file
+cd server && node --import tsx --test src/path/to/file.test.ts
+cd client && npx ng test --watch=false --include src/app/path/x.spec.ts
 ```
 
 - **Server tests** use an in-memory MongoDB ([mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server)), so Docker isn't needed for tests. The first run downloads a MongoDB 7.0.24 binary (~100 MB) and caches it.
@@ -128,6 +141,9 @@ npm test -w client       # client only (Karma, watch mode)
 - **Local only:** the app isn't meant to be deployed.
 - **Body size limit of 100 KB:** a Zap whose comment template is very long and mostly non-ASCII (emoji, CJK) can't be saved. A pull request with a huge non-ASCII description won't trigger the Zap.
 - **No run history screen.** Runs are stored for 7 days and can be read from the API (see Troubleshooting).
+- **smee and non-ASCII bodies:** smee re-serializes the webhook body, so the signature check can fail for some PR titles with emoji or accents (see Troubleshooting).
+- **Long comments are cut** to 65,536 characters (GitHub's limit), ending in `…`.
+- **A revoked GitHub token isn't noticed right away.** Comments fail silently (recorded as `failed` runs) until you next use the app, which then signs you out.
 
 ## Troubleshooting
 
@@ -145,11 +161,13 @@ If a run **failed** (for example GitHub had a temporary error), you can retry it
 2. Click the webhook whose URL is your smee channel with `?zap=<zapId>`.
 3. Open **Recent Deliveries**, select the failed `pull_request` delivery, and click **Redeliver**.
 
-Make sure `npm run smee` and the server are running. Redelivering a run that **succeeded** or is still **pending** does nothing, so the comment is never posted twice. There's one rare exception: if GitHub timed out or errored *after* creating the comment, the run was recorded as failed, and a redelivery posts a second comment.
+Make sure `npm run smee` and the server are running. Redeliver only helps for **failed** runs. Redelivering a run that **succeeded** or is still **pending** does nothing, so the comment is never posted twice. A run stuck in `pending` (the server stopped mid-request) is never retried, since its comment may already exist. There's one rare exception: if GitHub timed out or errored *after* creating the comment, the run was recorded as failed, and a redelivery posts a second comment.
+
+If the failure was a revoked token, sign in again first, then Redeliver.
 
 ### "This repo still has an old webhook from this Zap"
 
-When a Zap is turned off or deleted, removing its webhook on GitHub is best-effort. If that failed, the old webhook stays on the repo and blocks turning the same Zap on again for that repo.
+When a Zap is turned off, deleted or moved to another repo, removing its webhook on GitHub is best-effort. If that failed, the old webhook stays on the repo and blocks turning the same Zap on again for that repo (or moving it back there). Nothing was changed: on a toggle the Zap stays off; on a Save the Zap stays on with its old repo and your edits are kept in the form.
 
 1. Click **Open webhook on GitHub** in the dialog, or go to the repo's **Settings → Webhooks** and find the hook whose URL ends in `?zap=<zapId>`.
 2. Click **Delete**.
@@ -165,9 +183,13 @@ smee re-encodes the webhook body instead of forwarding GitHub's exact bytes, so 
 
 The GitHub sign-in didn't complete: you clicked **Cancel** on GitHub's authorize page, the OAuth `state` check failed (for example, the sign-in was started in another browser or its session expired), or GitHub returned an error such as a callback URL mismatch. Check that `GITHUB_CALLBACK_URL` in `server/.env` matches the OAuth App's **Authorization callback URL**, then sign in again.
 
-### "Your GitHub session expired"
+### "Your GitHub session expired, please sign in again"
 
-The app's GitHub token was revoked or expired, for example after you revoked the app under GitHub **Settings → Applications**. Sign in again. While the token is invalid, your Zaps can't post comments; those runs are recorded as `failed`.
+The app's GitHub token was revoked or expired, for example after you revoked the app under GitHub **Settings → Applications**. The first action that calls GitHub (loading your repos, turning a Zap on, moving it to another repo) signs you out and shows this message on the login page. Sign in again. Turning a Zap off or deleting it still works with a revoked token. While the token is invalid, your Zaps can't post comments; those runs are recorded as `failed` (retry them with Redeliver after signing in).
+
+### Nothing arrives after changing the smee channel
+
+Each webhook stores the full `WEBHOOK_PUBLIC_URL` it was created with. If you change it in `server/.env`, restart the server and `npm run smee`, then turn each Zap off and on again so its webhook points at the new channel.
 
 ## Project layout
 

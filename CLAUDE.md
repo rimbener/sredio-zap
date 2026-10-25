@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. Only the boilerplate exists so far; the app is built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`). The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
+"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. It was built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`, docs `D1`); the happy path and most edge cases are done. `README.md` is the user-facing setup, usage and troubleshooting guide. The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
 
 - `docs/PRD.md`: scope. `docs/Tech-Stack.md`: versions, libraries, testing approach, GitHub integration.
 - `docs/Data-model.md`: collections, lifecycle rules, webhook processing / run dedupe.
