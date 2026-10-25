@@ -13,8 +13,8 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Screens.md](docs/Screens.md) | Routes, wireframes, builder behavior, error handling |
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 
-> **Status:** only the project boilerplate exists so far; the app itself isn't implemented yet (see [Tasks.md](docs/Tasks.md)). Until the relevant tasks land:
-> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store) with `GET /api/apps`, `GET /api/zaps` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (sign-in: S1, Zap create/edit/toggle/delete: S5 onward).
+> **Status:** the app is being built slice by slice (see [Tasks.md](docs/Tasks.md)). Until the remaining tasks land:
+> - `npm run dev:server` serves GitHub sign-in (`/auth/github`), `GET /api/me`, `GET /api/apps`, `GET /api/github/repos`, `GET /api/zaps`, `POST /api/zaps`, `GET /api/zaps/:id/runs` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (sign-out: S2, Zap edit/toggle/delete: S7 onward).
 
 ## Prerequisites
 

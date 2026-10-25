@@ -1,0 +1,37 @@
+<div class="builder">
+  <header class="header">
+    <a mat-icon-button routerLink="/zaps" aria-label="Back to your Zaps">
+      <mat-icon>arrow_back</mat-icon>
+    </a>
+
+    <ng-container *ngIf="form">
+      <mat-form-field class="name" subscriptSizing="dynamic">
+        <input matInput [formControl]="form.controls.name" aria-label="Zap name" />
+        <mat-icon matSuffix>edit</mat-icon>
+        <mat-error>{{ form.controls.name.getError('zod') }}</mat-error>
+      </mat-form-field>
+
+      <span class="spacer"></span>
+
+      <span class="toggle" [matTooltip]="toggleTooltip">
+        <mat-slide-toggle [checked]="false" [disabled]="true">Off</mat-slide-toggle>
+      </span>
+
+      <button mat-flat-button color="primary" type="button" class="save" [disabled]="!canSave" (click)="save()">
+        <mat-spinner *ngIf="saving" diameter="18"></mat-spinner>
+        <span>Save</span>
+      </button>
+    </ng-container>
+  </header>
+
+  <!-- Edit mode is S7. -->
+  <p *ngIf="editMode" class="edit-placeholder">
+    Zap saved. <a routerLink="/zaps">Back to your Zaps</a>
+  </p>
+
+  <mat-accordion *ngIf="form && app" class="steps">
+    <app-trigger-step [app]="app" [group]="form.controls.trigger" [repos]="repos" [expanded]="true"></app-trigger-step>
+    <div class="connector" aria-hidden="true"></div>
+    <app-action-step [app]="app" [group]="form.controls.action"></app-action-step>
+  </mat-accordion>
+</div>
