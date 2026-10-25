@@ -1,13 +1,17 @@
 import { HttpContext } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { MatTooltip } from '@angular/material/tooltip';
+import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type { RepoDto, ZapDto } from '@zaps/shared';
-import { Subject, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
 import { NotificationService } from '../../core/notification.service';
 import { GITHUB_APP as GITHUB, makeZap } from '../testing/zap-fixtures';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapBuilderComponent } from './zap-builder.component';
 import { DEFAULT_COMMENT_BODY } from './zap-form';
@@ -22,9 +26,13 @@ const ZAP = makeZap({ name: 'Untitled Zap' });
 describe('ZapBuilderComponent (create mode)', () => {
   let zaps: jasmine.SpyObj<ZapsService>;
   let notifications: jasmine.SpyObj<NotificationService>;
+  let zapToggle: jasmine.SpyObj<ZapToggleService>;
+  let dialog: jasmine.SpyObj<MatDialog>;
 
   function render() {
     zaps = jasmine.createSpyObj<ZapsService>('ZapsService', ['create']);
+    zapToggle = jasmine.createSpyObj<ZapToggleService>('ZapToggleService', ['setEnabled']);
+    dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['show']);
     TestBed.configureTestingModule({
       imports: [ZapBuilderComponent],
@@ -41,6 +49,8 @@ describe('ZapBuilderComponent (create mode)', () => {
         { provide: GithubService, useValue: { getRepos: () => of(REPOS) } },
         { provide: ZapsService, useValue: zaps },
         { provide: NotificationService, useValue: notifications },
+        { provide: ZapToggleService, useValue: zapToggle },
+        { provide: MatDialog, useValue: dialog },
       ],
     });
     const fixture = TestBed.createComponent(ZapBuilderComponent);
@@ -163,10 +173,14 @@ describe('ZapBuilderComponent (create mode)', () => {
     expect(notifications.show).not.toHaveBeenCalled();
   });
 
-  it('the on/off toggle is disabled in create mode', () => {
-    const { el } = render();
+  it('the on/off toggle is disabled in create mode, with the tooltip, and there is no ⋮ menu', () => {
+    const { fixture, el } = render();
     const toggle = el.querySelector<HTMLButtonElement>('mat-slide-toggle button')!;
     expect(toggle.disabled).toBeTrue();
+    const tooltip = fixture.debugElement.query(By.directive(MatTooltip)).injector.get(MatTooltip);
+    expect(tooltip.message).toBe('Save your changes before turning this Zap on/off');
+    expect(tooltip.disabled).toBeFalse();
+    expect(el.querySelector('.menu-button')).toBeNull();
   });
 });
 
@@ -179,10 +193,14 @@ describe('ZapBuilderComponent (edit mode)', () => {
 
   let zaps: jasmine.SpyObj<ZapsService>;
   let notifications: jasmine.SpyObj<NotificationService>;
+  let zapToggle: jasmine.SpyObj<ZapToggleService>;
+  let dialog: jasmine.SpyObj<MatDialog>;
   let zap$: Subject<ZapDto>;
 
   function render() {
-    zaps = jasmine.createSpyObj<ZapsService>('ZapsService', ['get', 'update', 'create']);
+    zaps = jasmine.createSpyObj<ZapsService>('ZapsService', ['get', 'update', 'create', 'delete']);
+    zapToggle = jasmine.createSpyObj<ZapToggleService>('ZapToggleService', ['setEnabled']);
+    dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     zap$ = new Subject<ZapDto>();
     zaps.get.and.returnValue(zap$);
     notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['show']);
@@ -201,6 +219,8 @@ describe('ZapBuilderComponent (edit mode)', () => {
         { provide: GithubService, useValue: { getRepos: () => of(REPOS) } },
         { provide: ZapsService, useValue: zaps },
         { provide: NotificationService, useValue: notifications },
+        { provide: ZapToggleService, useValue: zapToggle },
+        { provide: MatDialog, useValue: dialog },
       ],
     });
     const fixture = TestBed.createComponent(ZapBuilderComponent);
@@ -314,6 +334,113 @@ describe('ZapBuilderComponent (edit mode)', () => {
     expect(component.zap).toEqual(SAVED);
     expect(saveButton().disabled).toBeFalse();
     expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  describe('header toggle', () => {
+    const toggleButton = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('mat-slide-toggle button')!;
+    const tooltipOf = (fixture: ReturnType<typeof render>['fixture']) =>
+      fixture.debugElement.query(By.directive(MatTooltip)).injector.get(MatTooltip);
+
+    it('is enabled when pristine, without the tooltip', () => {
+      const { fixture, el, load } = render();
+      load();
+      expect(toggleButton(el).disabled).toBeFalse();
+      expect(tooltipOf(fixture).disabled).toBeTrue();
+    });
+
+    it('is disabled with the tooltip while the form is dirty, enabled again once saved', () => {
+      const { fixture, el, load, saveButton } = render();
+      const form = load();
+      zaps.update.and.returnValue(of({ ...SAVED, name: 'Renamed' }));
+      form.controls.name.setValue('Renamed');
+      form.markAsDirty();
+      fixture.detectChanges();
+      expect(toggleButton(el).disabled).toBeTrue();
+      const tooltip = tooltipOf(fixture);
+      expect(tooltip.message).toBe('Save your changes before turning this Zap on/off');
+      expect(tooltip.disabled).toBeFalse();
+
+      saveButton().click();
+      fixture.detectChanges();
+      expect(toggleButton(el).disabled).toBeFalse();
+    });
+
+    it('turns the Zap on through ZapToggleService, disabled while the request runs', () => {
+      const { fixture, el, load, component } = render();
+      load();
+      const response$ = new Subject<ZapDto>();
+      zapToggle.setEnabled.and.returnValue(response$);
+
+      toggleButton(el).click();
+      fixture.detectChanges();
+      expect(zapToggle.setEnabled).toHaveBeenCalledOnceWith(SAVED, true);
+      expect(toggleButton(el).disabled).toBeTrue();
+
+      response$.next({ ...SAVED, enabled: true });
+      response$.complete();
+      fixture.detectChanges();
+      expect(component.zap?.enabled).toBeTrue();
+      expect(toggleButton(el).disabled).toBeFalse();
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('true');
+      expect(el.querySelector('mat-slide-toggle')?.textContent).toContain('On');
+    });
+
+    it('reverts on error', () => {
+      const { fixture, el, load, component } = render();
+      load();
+      zapToggle.setEnabled.and.returnValue(throwError(() => new Error('boom')));
+
+      toggleButton(el).click();
+      fixture.detectChanges();
+      expect(component.zap?.enabled).toBeFalse();
+      expect(toggleButton(el).disabled).toBeFalse();
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('false');
+    });
+  });
+
+  describe('⋮ → Delete', () => {
+    /** Loads the Zap, answers the confirm dialog with `confirmed`, and clicks ⋮ → Delete. */
+    function openDelete(confirmed: boolean, deleted: Observable<void>, dirty = false) {
+      const r = render();
+      const form = r.load();
+      if (dirty) {
+        form.controls.name.setValue('Renamed');
+        form.markAsDirty();
+      }
+      const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      zaps.delete.and.returnValue(deleted);
+      dialog.open.and.returnValue({ afterClosed: () => of(confirmed) } as never);
+      r.el.querySelector<HTMLButtonElement>('.menu-button')!.click();
+      r.fixture.detectChanges();
+      document.querySelector<HTMLButtonElement>('.delete-item')!.click();
+      return { ...r, form, navigate };
+    }
+
+    it('confirms with the list text, deletes, marks pristine, then navigates to /zaps', () => {
+      const { form, navigate } = openDelete(true, of(undefined), true);
+
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      expect(dialog.open.calls.mostRecent().args[1]?.data).toEqual({
+        title: 'Delete Zap',
+        message: 'Delete Thank PRs? Its GitHub webhook will be removed.',
+        confirmLabel: 'Delete',
+      });
+      expect(zaps.delete).toHaveBeenCalledOnceWith(SAVED.id);
+      expect(form.pristine).toBeTrue();
+      expect(navigate).toHaveBeenCalledOnceWith(['/zaps']);
+    });
+
+    it('does nothing when cancelled', () => {
+      const { navigate } = openDelete(false, of(undefined));
+      expect(zaps.delete).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('stays on the builder when the delete fails', () => {
+      const { navigate } = openDelete(true, throwError(() => new Error('boom')));
+      expect(zaps.delete).toHaveBeenCalledTimes(1);
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 
   it('a failed load hides the spinner and shows no form', () => {

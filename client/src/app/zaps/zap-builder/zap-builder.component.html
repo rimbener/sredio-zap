@@ -13,8 +13,13 @@
 
       <span class="spacer"></span>
 
-      <span class="toggle" [matTooltip]="toggleTooltip">
-        <mat-slide-toggle [checked]="zap?.enabled ?? false" [disabled]="true">
+      <span class="toggle" [matTooltip]="toggleTooltip" [matTooltipDisabled]="!toggleBlocked">
+        <mat-slide-toggle
+          [checked]="zap?.enabled ?? false"
+          [disabled]="toggleBlocked || toggling"
+          [attr.aria-label]="zap?.enabled ? 'Turn off this Zap' : 'Turn on this Zap'"
+          (change)="onToggle($event)"
+        >
           {{ zap?.enabled ? 'On' : 'Off' }}
         </mat-slide-toggle>
       </span>
@@ -23,6 +28,15 @@
         <mat-spinner *ngIf="saving" diameter="18"></mat-spinner>
         <span>Save</span>
       </button>
+
+      <ng-container *ngIf="zap">
+        <button mat-icon-button type="button" class="menu-button" [matMenuTriggerFor]="zapMenu" aria-label="Zap actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #zapMenu="matMenu">
+          <button mat-menu-item type="button" class="delete-item" (click)="onDelete()">Delete</button>
+        </mat-menu>
+      </ng-container>
     </ng-container>
   </header>
 

@@ -1,24 +1,28 @@
 import { NgIf } from '@angular/common';
 import { HttpContext } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSlideToggle, MatSlideToggleChange, MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { AppDto, RepoDto, ZapDto } from '@zaps/shared';
-import { Observable, catchError, forkJoin, of } from 'rxjs';
+import { Observable, catchError, filter, finalize, forkJoin, of, switchMap } from 'rxjs';
 import { ApiError } from '../../core/api-error';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
 import { HANDLED_ERROR_CODES } from '../../core/http-error.interceptor';
 import { NotificationService } from '../../core/notification.service';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ActionStepComponent } from './action-step.component';
 import { applyValidationErrors, saveContext } from './form-errors';
@@ -41,6 +45,7 @@ import { ZapForm, createZapForm, editZapForm, toCreateZapInput, toPatchZapInput 
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatMenuModule,
     MatProgressSpinnerModule,
     MatSlideToggleModule,
     MatTooltipModule,
@@ -57,6 +62,8 @@ export class ZapBuilderComponent implements OnInit {
   private readonly github = inject(GithubService);
   private readonly zaps = inject(ZapsService);
   private readonly notifications = inject(NotificationService);
+  private readonly dialog = inject(MatDialog);
+  private readonly zapToggle = inject(ZapToggleService);
   private readonly destroyRef = inject(DestroyRef);
 
   /** Snackbar for `/zaps/new` with a missing, unknown or coming-soon `appId` (E9). */
@@ -79,6 +86,10 @@ export class ZapBuilderComponent implements OnInit {
   saving = false;
   /** Edit mode: the Zap doesn't exist or isn't the user's (`404 NOT_FOUND`). */
   notFound = false;
+  /** True while a header enable/disable request runs. */
+  toggling = false;
+
+  @ViewChild(MatSlideToggle) private slideToggle?: MatSlideToggle;
 
   ngOnInit(): void {
     if (this.zapId !== null) this.loadEdit(this.zapId);
@@ -87,6 +98,61 @@ export class ZapBuilderComponent implements OnInit {
 
   get canSave(): boolean {
     return !!this.form && this.form.dirty && this.form.valid && !this.saving;
+  }
+
+  /**
+   * The header toggle needs a saved Zap and no unsaved changes (Screens.md → Header bar);
+   * the tooltip explains it while this is true.
+   */
+  get toggleBlocked(): boolean {
+    return !this.zap || !this.form || this.form.dirty;
+  }
+
+  /** Header toggle: enable/disable through `ZapToggleService`, reverting on error (S11). */
+  onToggle(change: MatSlideToggleChange): void {
+    const { zap } = this;
+    if (!zap || this.toggleBlocked || this.toggling) return;
+    this.toggling = true;
+    this.zapToggle
+      .setEnabled(zap, change.checked)
+      .pipe(
+        finalize(() => {
+          this.toggling = false;
+          // On error `zap.enabled` is unchanged, so `[checked]` never fires: snap the switch back.
+          if (this.slideToggle && this.zap) this.slideToggle.checked = this.zap.enabled;
+        }),
+      )
+      .subscribe({
+        next: (updated) => {
+          this.zap = updated;
+        },
+        // The interceptor already showed the snackbar.
+        error: () => undefined,
+      });
+  }
+
+  /** Header ⋮ → Delete: the list's confirm dialog, `DELETE /api/zaps/:id`, then `/zaps` (S11). */
+  onDelete(): void {
+    const { zap } = this;
+    if (!zap) return;
+    ConfirmDialogComponent.open(this.dialog, {
+      title: 'Delete Zap',
+      message: `Delete ${zap.name}? Its GitHub webhook will be removed.`,
+      confirmLabel: 'Delete',
+    })
+      .pipe(
+        filter((confirmed) => confirmed),
+        switchMap(() => this.zaps.delete(zap.id)),
+      )
+      .subscribe({
+        next: () => {
+          // The Zap is gone, so nothing is left to save: keep the unsaved-changes guard (E10) quiet.
+          this.form?.markAsPristine();
+          void this.router.navigate(['/zaps']);
+        },
+        // The builder stays; the interceptor already showed the snackbar.
+        error: () => undefined,
+      });
   }
 
   save(): void {
