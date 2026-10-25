@@ -1,11 +1,13 @@
 import { NgFor, NgIf } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import type { AppDto, ZapDto } from '@zaps/shared';
 import { forkJoin } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
+import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
 import { ZapsService } from '../zaps.service';
 import { ZapCardComponent, ZapToggleEvent } from './zap-card.component';
 
@@ -22,6 +24,7 @@ type ListState = 'loading' | 'ready' | 'error';
 export class ZapListComponent implements OnInit {
   private readonly zapsService = inject(ZapsService);
   private readonly appsService = inject(AppsService);
+  private readonly dialog = inject(MatDialog);
 
   state: ListState = 'loading';
   zaps: ZapDto[] = [];
@@ -48,7 +51,9 @@ export class ZapListComponent implements OnInit {
   }
 
   /** **Create Zap** (header and empty state): opens the app picker (S4). */
-  onCreate(): void {}
+  onCreate(): void {
+    AppPickerDialogComponent.open(this.dialog);
+  }
 
   /** Card toggle: enable/disable through `ZapToggleService` (S8). */
   onToggle(_event: ZapToggleEvent): void {}

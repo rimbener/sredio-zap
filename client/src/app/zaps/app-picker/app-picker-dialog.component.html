@@ -1,0 +1,27 @@
+<div class="title-row">
+  <h2 mat-dialog-title>Choose the app that starts your Zap</h2>
+  <button mat-icon-button type="button" class="close-button" mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content>
+  <div *ngIf="!apps" class="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div *ngIf="apps" class="tiles">
+    <button
+      *ngFor="let app of apps; trackBy: trackById"
+      type="button"
+      class="tile"
+      [class.coming-soon]="!isAvailable(app)"
+      [attr.aria-disabled]="isAvailable(app) ? null : 'true'"
+      (click)="pick(app)"
+    >
+      <img class="icon" [src]="app.icon" alt="" />
+      <span class="name">{{ app.name }}</span>
+      <span *ngIf="!isAvailable(app)" class="badge">Coming soon</span>
+    </button>
+  </div>
+</mat-dialog-content>

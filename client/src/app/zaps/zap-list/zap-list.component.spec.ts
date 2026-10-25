@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import type { ZapDto } from '@zaps/shared';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
+import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
 import { GITHUB_APP, makeZap } from '../testing/zap-fixtures';
 import { ZapsService } from '../zaps.service';
 import { ZapListComponent } from './zap-list.component';
@@ -25,6 +27,7 @@ describe('ZapListComponent', () => {
         provideNoopAnimations(),
         { provide: ZapsService, useValue: { list } },
         { provide: AppsService, useValue: { getApps: () => of([GITHUB_APP]) } },
+        { provide: MatDialog, useValue: jasmine.createSpyObj<MatDialog>('MatDialog', ['open']) },
       ],
     });
   });
@@ -85,5 +88,17 @@ describe('ZapListComponent', () => {
 
     expect(component.onCreate).toHaveBeenCalled();
     expect(component.onToggle).toHaveBeenCalledWith({ zap, enabled: true });
+  });
+
+  it('Create Zap opens the app picker from the header and the empty state', () => {
+    list.and.returnValue(of([]));
+    const el = render();
+    const dialog = TestBed.inject(MatDialog) as jasmine.SpyObj<MatDialog>;
+
+    el.querySelector<HTMLButtonElement>('.header .create-button')!.click();
+    el.querySelector<HTMLButtonElement>('.empty .create-button')!.click();
+
+    expect(dialog.open).toHaveBeenCalledTimes(2);
+    expect(dialog.open.calls.allArgs().every(([component]) => component === AppPickerDialogComponent)).toBeTrue();
   });
 });
