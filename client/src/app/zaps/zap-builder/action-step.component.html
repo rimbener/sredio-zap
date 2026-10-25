@@ -1,0 +1,26 @@
+<mat-expansion-panel [expanded]="expanded">
+  <mat-expansion-panel-header>
+    <mat-panel-title>2. Action · {{ app.name }}</mat-panel-title>
+  </mat-expansion-panel-header>
+
+  <div class="fields" [formGroup]="group">
+    <mat-form-field>
+      <mat-label>Event</mat-label>
+      <mat-select formControlName="event">
+        <mat-option *ngFor="let action of app.actions" [value]="action.key">{{ action.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Comment</mat-label>
+      <textarea
+        matInput
+        formControlName="body"
+        cdkTextareaAutosize
+        cdkAutosizeMinRows="3"
+        cdkAutosizeMaxRows="20"
+      ></textarea>
+      <mat-error>{{ group.controls.body.getError('zod') }}</mat-error>
+    </mat-form-field>
+  </div>
+</mat-expansion-panel>

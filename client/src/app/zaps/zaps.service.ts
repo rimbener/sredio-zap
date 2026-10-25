@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { ZapDto } from '@zaps/shared';
+import type { CreateZapInput, ZapDto } from '@zaps/shared';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -13,5 +13,10 @@ export class ZapsService {
   /** The signed-in user's Zaps, newest `updatedAt` first (server order). */
   list(): Observable<ZapDto[]> {
     return this.http.get<ZapDto[]>(this.url);
+  }
+
+  /** `POST /api/zaps`: the new Zap, always disabled. */
+  create(input: CreateZapInput): Observable<ZapDto> {
+    return this.http.post<ZapDto>(this.url, input);
   }
 }

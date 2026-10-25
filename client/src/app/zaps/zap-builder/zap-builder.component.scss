@@ -1,0 +1,34 @@
+.builder {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.name {
+  flex: 1 1 auto;
+  max-width: 360px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.save mat-spinner {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.connector {
+  width: 2px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.24);
+}
