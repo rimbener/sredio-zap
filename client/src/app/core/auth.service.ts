@@ -3,8 +3,11 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, finalize, of, shareReplay, tap, throwError } from 'rxjs';
 import { UserDto } from '@zaps/shared';
 import { GENERIC_ERROR_MESSAGE } from './error-messages';
+import { environment } from '../../environments/environment';
 import { ME_URL } from './http-error.interceptor';
 import { NotificationService } from './notification.service';
+
+export const LOGOUT_URL = `${environment.apiUrl}/auth/logout`;
 
 /** `undefined` = not loaded yet, `null` = known signed out, otherwise the signed-in user. */
 export type AuthState = UserDto | null | undefined;
@@ -46,6 +49,14 @@ export class AuthService {
       shareReplay({ bufferSize: 1, refCount: false }),
     );
     return this.pending;
+  }
+
+  /**
+   * Signs out: `POST /auth/logout` with `{}`, then marks the user as signed out. On failure
+   * the interceptor's snackbar shows and the state is left as is.
+   */
+  logout(): Observable<void> {
+    return this.http.post<void>(LOGOUT_URL, {}).pipe(tap(() => this.setSignedOut()));
   }
 
   /** Marks the user as signed out (sign out, expired session). */

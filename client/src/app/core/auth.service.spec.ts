@@ -2,7 +2,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { UserDto } from '@zaps/shared';
-import { AuthService, AuthState } from './auth.service';
+import { AuthService, AuthState, LOGOUT_URL } from './auth.service';
 import { GENERIC_ERROR_MESSAGE } from './error-messages';
 import { ME_URL, httpErrorInterceptor } from './http-error.interceptor';
 import { NotificationService } from './notification.service';
@@ -90,5 +90,40 @@ describe('AuthService', () => {
     auth.loadUser().subscribe((u) => (result = u));
     http.expectNone(ME_URL);
     expect(result).toBeNull();
+  });
+
+  describe('logout()', () => {
+    beforeEach(() => {
+      auth.loadUser().subscribe();
+      http.expectOne(ME_URL).flush(user);
+    });
+
+    it('POSTs {} with credentials to /auth/logout, then sets the state to null', () => {
+      let done = false;
+      auth.logout().subscribe(() => (done = true));
+
+      const req = http.expectOne(LOGOUT_URL);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({});
+      expect(req.request.withCredentials).toBeTrue();
+      req.flush(null, { status: 204, statusText: 'No Content' });
+
+      expect(done).toBeTrue();
+      let state: AuthState;
+      auth.user$.subscribe((s) => (state = s));
+      expect(state).toBeNull();
+    });
+
+    it('keeps the user and errors out when the request fails', () => {
+      let failed = false;
+      auth.logout().subscribe({ error: () => (failed = true) });
+      http.expectOne(LOGOUT_URL).flush(null, { status: 500, statusText: 'Server Error' });
+
+      expect(failed).toBeTrue();
+      expect(notifications.show).toHaveBeenCalledOnceWith(GENERIC_ERROR_MESSAGE);
+      let state: AuthState;
+      auth.user$.subscribe((s) => (state = s));
+      expect(state).toEqual(user);
+    });
   });
 });
