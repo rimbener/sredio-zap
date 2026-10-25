@@ -80,7 +80,9 @@ describe('POST /api/zaps', () => {
       .send(body({ appId: githubId }));
 
     assert.equal(res.status, 201);
-    assert.equal(await ZapModel.countDocuments({ userId: other._id }), 0);
+    const otherList = await request(createApp({ authenticateAs: () => other })).get('/api/zaps');
+    assert.equal(otherList.status, 200);
+    assert.deepEqual(otherList.body, []);
     await assert.rejects(findOwnedZap(other._id, res.body.id), { code: 'NOT_FOUND' });
   });
 
