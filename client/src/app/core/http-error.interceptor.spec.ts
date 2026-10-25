@@ -163,6 +163,9 @@ describe('errorMessageFor', () => {
     const text = (code: ErrorCode) => errorMessageFor(new ApiError(400, code, ''));
     expect(text('NOT_FOUND')).toBe('This Zap no longer exists');
     expect(text('APP_UNAVAILABLE')).toBe("This app isn't available yet.");
+    expect(text('REPO_NOT_ACCESSIBLE')).toBe(
+      "Can't add a webhook to this repo. Check it's public, you're an admin, and (for organization repos) that the organization allows this app.",
+    );
     expect(text('GITHUB_ERROR')).toBe("GitHub didn't respond as expected. Try again.");
     expect(text('PAYLOAD_TOO_LARGE')).toBe('This comment is too long to save. Try shortening it.');
     expect(text('INTERNAL_ERROR')).toBe('Something went wrong. Try again.');

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Octokit } from '@octokit/rest';
+import { mapGithubError } from './errors.js';
 
 export interface HookBody {
   active: true;
@@ -43,19 +44,23 @@ export interface CreateWebhookParams {
 
 /**
  * Creates the Zap's webhook and returns its id and the plain secret (the caller encrypts it before storing).
- * Happy path only: error mapping (E3) and the 422 leftover-hook lookup (E4) come later.
+ * GitHub errors are mapped with `mapGithubError` (E3); the 422 leftover-hook lookup is E4.
  */
 export async function createWebhook(
   octokit: Octokit,
   { owner, repo, zapId, webhookPublicUrl }: CreateWebhookParams,
 ): Promise<{ hookId: number; secret: string }> {
   const secret = generateWebhookSecret();
-  const { data } = await octokit.rest.repos.createWebhook({
-    owner,
-    repo,
-    ...buildHookBody(zapId, secret, webhookPublicUrl),
-  });
-  return { hookId: data.id, secret };
+  try {
+    const { data } = await octokit.rest.repos.createWebhook({
+      owner,
+      repo,
+      ...buildHookBody(zapId, secret, webhookPublicUrl),
+    });
+    return { hookId: data.id, secret };
+  } catch (err) {
+    throw mapGithubError(err, { repoAccess: true });
+  }
 }
 
 export interface RemoveWebhookParams {
