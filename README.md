@@ -14,7 +14,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 
 > **Status:** only the project boilerplate exists so far; the app itself isn't implemented yet (see [Tasks.md](docs/Tasks.md)). Until the relevant tasks land:
-> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store) with `GET /api/apps` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (sign-in: S1, Zaps: S3 onward).
+> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store) with `GET /api/apps`, `GET /api/zaps` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (sign-in: S1, Zap create/edit/toggle/delete: S5 onward).
 
 ## Prerequisites
 

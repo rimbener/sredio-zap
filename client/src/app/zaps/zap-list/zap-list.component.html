@@ -1,0 +1,35 @@
+<header class="header">
+  <h1>Your Zaps</h1>
+  <button mat-flat-button color="primary" type="button" class="create-button" (click)="onCreate()">
+    <mat-icon>add</mat-icon>
+    Create Zap
+  </button>
+</header>
+
+<div *ngIf="state === 'loading'" class="state loading">
+  <mat-spinner diameter="48"></mat-spinner>
+</div>
+
+<div *ngIf="state === 'error'" class="state error">
+  <p>We couldn't load your Zaps.</p>
+  <button mat-stroked-button type="button" class="retry-button" (click)="load()">Retry</button>
+</div>
+
+<div *ngIf="state === 'ready' && zaps.length === 0" class="state empty">
+  <p>No Zaps yet. Create your first one: when a PR opens, comment on it.</p>
+  <button mat-flat-button color="primary" type="button" class="create-button" (click)="onCreate()">
+    <mat-icon>add</mat-icon>
+    Create Zap
+  </button>
+</div>
+
+<div *ngIf="state === 'ready' && zaps.length > 0" class="grid">
+  <app-zap-card
+    *ngFor="let zap of zaps; trackBy: trackById"
+    [zap]="zap"
+    [apps]="apps"
+    (toggle)="onToggle($event)"
+    (edit)="onEdit($event)"
+    (delete)="onDelete($event)"
+  ></app-zap-card>
+</div>
