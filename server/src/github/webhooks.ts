@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Octokit } from '@octokit/rest';
 import { mapGithubError } from './errors.js';
+import { leftoverHookError } from './find-own-hook.js';
 
 export interface HookBody {
   active: true;
@@ -44,21 +45,22 @@ export interface CreateWebhookParams {
 
 /**
  * Creates the Zap's webhook and returns its id and the plain secret (the caller encrypts it before storing).
- * GitHub errors are mapped with `mapGithubError` (E3); the 422 leftover-hook lookup is E4.
+ * GitHub errors are mapped with `mapGithubError` (E3); a 422 first goes through the leftover-hook lookup (E4).
  */
 export async function createWebhook(
   octokit: Octokit,
   { owner, repo, zapId, webhookPublicUrl }: CreateWebhookParams,
 ): Promise<{ hookId: number; secret: string }> {
   const secret = generateWebhookSecret();
+  const body = buildHookBody(zapId, secret, webhookPublicUrl);
   try {
-    const { data } = await octokit.rest.repos.createWebhook({
-      owner,
-      repo,
-      ...buildHookBody(zapId, secret, webhookPublicUrl),
-    });
+    const { data } = await octokit.rest.repos.createWebhook({ owner, repo, ...body });
     return { hookId: data.id, secret };
   } catch (err) {
+    // GitHub 422: maybe this Zap's own leftover hook (E4) → 409 WEBHOOK_EXISTS, else 502.
+    if ((err as { status?: unknown }).status === 422) {
+      throw await leftoverHookError(octokit, { owner, repo, url: body.config.url });
+    }
     throw mapGithubError(err, { repoAccess: true });
   }
 }
