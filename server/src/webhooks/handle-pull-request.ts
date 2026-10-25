@@ -4,7 +4,8 @@ import { decrypt } from '../crypto/token.js';
 import { getOctokit } from '../github/octokit.js';
 import { UserModel } from '../models/user.js';
 import type { ZapDocument } from '../models/zap.js';
-import { ZapRunModel } from '../models/zapRun.js';
+import { claimRun } from './claim-run.js';
+import { markRunFailed, markRunSucceeded } from './run-status.js';
 
 /** The fields of a `pull_request` payload the receiver reads. Other fields are ignored. */
 const pullRequestPayloadSchema = z.object({
@@ -31,9 +32,11 @@ export function parseOpenedPullRequest(event: string | undefined, body: unknown)
 }
 
 /**
- * Happy branch of Data-model.md → zapRuns: insert the `pending` run (the claim on the delivery),
- * render the comment, post it with the owner's token, then mark the run `success`.
- * Failed comments, duplicate deliveries and retries are E7.
+ * Data-model.md → zapRuns: claim the delivery with a `pending` run (or re-claim a `failed` one),
+ * post the comment, then mark the run `success` or `failed`. A duplicate delivery whose run is
+ * `success` or `pending` is skipped. A failure before or during the comment call is recorded as
+ * a `failed` run and never thrown, so the receiver answers `200`. If marking `success` itself
+ * fails, the run stays `pending` and is never retried (the comment was already posted).
  */
 export async function handlePullRequestOpened(
   zap: ZapDocument,
@@ -41,15 +44,22 @@ export async function handlePullRequestOpened(
   payload: PullRequestPayload,
   key: Buffer,
 ): Promise<void> {
-  const { pull_request: pr } = payload;
-  const run = await ZapRunModel.create({
-    zapId: zap._id,
-    userId: zap.userId,
-    deliveryId,
-    status: 'pending',
-    input: { prNumber: pr.number, prUrl: pr.html_url },
-  });
+  const run = await claimRun(zap, deliveryId, payload);
+  if (!run) return;
 
+  let commentUrl: string;
+  try {
+    commentUrl = await commentOnPullRequest(zap, payload, key);
+  } catch (err) {
+    await markRunFailed(run, err);
+    return;
+  }
+  await markRunSucceeded(run, commentUrl);
+}
+
+/** Renders the action body and posts it on the PR with the owner's token. Returns the comment URL. */
+async function commentOnPullRequest(zap: ZapDocument, payload: PullRequestPayload, key: Buffer): Promise<string> {
+  const { pull_request: pr } = payload;
   const owner = await UserModel.findById(zap.userId).orFail();
   const octokit = getOctokit(decrypt(owner.accessToken, key));
   const { owner: repoOwner, repo } = zap.trigger.config as { owner: string; repo: string };
@@ -62,7 +72,5 @@ export async function handlePullRequestOpened(
     body: renderTemplate(template, buildTokenValues(payload)),
   });
 
-  run.status = 'success';
-  run.output = { commentUrl: comment.html_url };
-  await run.save();
+  return comment.html_url;
 }
