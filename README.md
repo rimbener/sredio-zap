@@ -161,6 +161,10 @@ Leftover webhooks of deleted Zaps don't trigger anything. You can delete them th
 
 smee re-encodes the webhook body instead of forwarding GitHub's exact bytes, so the signature check can fail for some payloads, such as PR titles with emoji or accented characters. If you hit this, use a different tunnel that forwards the body unchanged. The signature check is never disabled.
 
+### "Sign-in failed. Please try again."
+
+The GitHub sign-in didn't complete: you clicked **Cancel** on GitHub's authorize page, the OAuth `state` check failed (for example, the sign-in was started in another browser or its session expired), or GitHub returned an error such as a callback URL mismatch. Check that `GITHUB_CALLBACK_URL` in `server/.env` matches the OAuth App's **Authorization callback URL**, then sign in again.
+
 ### "Your GitHub session expired"
 
 The app's GitHub token was revoked or expired, for example after you revoked the app under GitHub **Settings → Applications**. Sign in again. While the token is invalid, your Zaps can't post comments; those runs are recorded as `failed`.
