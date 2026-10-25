@@ -13,6 +13,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Screens.md](docs/Screens.md) | Routes, wireframes, builder behavior, error handling |
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 | [tasks/done/](tasks/done/) | One file per finished task (goal, scope, acceptance) |
+| [tasks/pending/](tasks/pending/) | Tasks not done yet, same format |
 
 **What you can do:** sign in with GitHub; list, create, edit, turn on/off and delete Zaps; pick a public repo you admin as the trigger; write the comment with fields from the pull request (`{{pr.title}}`, `{{pr.author}}`, …) and a live preview. There's no run history screen; runs are readable through `GET /api/zaps/:id/runs` (see [Troubleshooting](#troubleshooting)).
 
