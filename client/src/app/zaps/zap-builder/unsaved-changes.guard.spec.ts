@@ -13,6 +13,7 @@ import { GithubService } from '../../core/github.service';
 import { NotificationService } from '../../core/notification.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { GITHUB_APP, makeZap } from '../testing/zap-fixtures';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapBuilderComponent } from './zap-builder.component';
 import { HasUnsavedChanges, unsavedChangesGuard } from './unsaved-changes.guard';
@@ -166,6 +167,7 @@ describe('unsavedChangesGuard with the real builder', () => {
         { provide: GithubService, useValue: { getRepos: () => of([REPO]) } },
         { provide: ZapsService, useValue: { create: () => of(ZAP), get: () => of(ZAP) } },
         { provide: NotificationService, useValue: { show: () => undefined } },
+        { provide: ZapToggleService, useValue: { setEnabled: () => of(ZAP) } },
       ],
     });
     const harness = await RouterTestingHarness.create();
@@ -179,4 +181,37 @@ describe('unsavedChangesGuard with the real builder', () => {
     expect(dialog.open).not.toHaveBeenCalled();
     expect(TestBed.inject(Router).url).toBe(`/zaps/${ZAP.id}`);
   });
+
+  it('after ⋮ → Delete on a dirty form the navigation to /zaps shows no discard dialog', async () => {
+    const dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
+    dialog.open.and.returnValue({ afterClosed: () => of(true) } as never);
+    TestBed.configureTestingModule({
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([
+          { path: 'zaps', component: ListStubComponent },
+          { path: 'zaps/:id', component: ZapBuilderComponent, canDeactivate: [unsavedChangesGuard] },
+        ]),
+        { provide: MatDialog, useValue: dialog },
+        { provide: AppsService, useValue: { getApps: () => of([GITHUB_APP]) } },
+        { provide: GithubService, useValue: { getRepos: () => of([REPO]) } },
+        { provide: ZapsService, useValue: { get: () => of(ZAP), delete: () => of(undefined) } },
+        { provide: NotificationService, useValue: { show: () => undefined } },
+        { provide: ZapToggleService, useValue: { setEnabled: () => of(ZAP) } },
+      ],
+    });
+    const harness = await RouterTestingHarness.create();
+    const builder = await harness.navigateByUrl(`/zaps/${ZAP.id}`, ZapBuilderComponent);
+    builder.form!.controls.name.setValue('Renamed');
+    builder.form!.markAsDirty();
+
+    builder.onDelete();
+    await harness.fixture.whenStable();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1); // the delete confirm only
+    expect(TestBed.inject(Router).url).toBe('/zaps');
+  });
 });
+
+@Component({ standalone: true, selector: 'app-list-stub', template: '' })
+class ListStubComponent {}

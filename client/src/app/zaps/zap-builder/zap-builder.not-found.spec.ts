@@ -1,5 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type { AppDto } from '@zaps/shared';
@@ -10,6 +11,7 @@ import { GithubService } from '../../core/github.service';
 import { HANDLED_ERROR_CODES } from '../../core/http-error.interceptor';
 import { NotificationService } from '../../core/notification.service';
 import { GITHUB_APP } from '../testing/zap-fixtures';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapBuilderComponent } from './zap-builder.component';
 
@@ -46,6 +48,8 @@ describe('ZapBuilderComponent (not found and bad links)', () => {
         { provide: GithubService, useValue: { getRepos } },
         { provide: ZapsService, useValue: zaps },
         { provide: NotificationService, useValue: notifications },
+        { provide: ZapToggleService, useValue: jasmine.createSpyObj<ZapToggleService>('ZapToggleService', ['setEnabled']) },
+        { provide: MatDialog, useValue: jasmine.createSpyObj<MatDialog>('MatDialog', ['open']) },
       ],
     });
     const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
@@ -75,6 +79,8 @@ describe('ZapBuilderComponent (not found and bad links)', () => {
       expect(state.textContent).toContain('Zap not found');
       expect(state.querySelector('a')?.getAttribute('href')).toBe('/zaps');
       expect(el.querySelector('button.save')).toBeNull();
+      expect(el.querySelector('mat-slide-toggle')).toBeNull();
+      expect(el.querySelector('.menu-button')).toBeNull();
     });
 
     it('another error shows no "Zap not found" state', () => {
