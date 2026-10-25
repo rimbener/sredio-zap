@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. It was built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`, docs `D1`); all of its tasks are done. Each task's details now live in its own file in `tasks/done/` (`<ID>-<slug>.md`), and `docs/Tasks.md` keeps the overview with a link to each. `README.md` is the user-facing setup, usage and troubleshooting guide. The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
+"Zaps" is a local-only Zapier-style app with one working Zap: **when a PR is opened on a GitHub repo, comment on it**. It was built from the plan in `docs/Tasks.md` (foundation `F*`, happy-path slices `S*`, edge-case slices `E*`, docs `D1`); all of its tasks are done. Each task's details now live in its own file in `tasks/done/` (`<ID>-<slug>.md`), and `docs/Tasks.md` keeps the overview with a link to each. New work is written as a task file in the same format in `tasks/pending/` (`U*` for post-plan UI improvements); the PR that implements a pending task also moves its file to `tasks/done/`. `README.md` is the user-facing setup, usage and troubleshooting guide. The spec lives in `docs/` and is authoritative. Read the relevant one before implementing:
 
 - `docs/PRD.md`: scope. `docs/Tech-Stack.md`: versions, libraries, testing approach, GitHub integration.
 - `docs/Data-model.md`: collections, lifecycle rules, webhook processing / run dedupe.

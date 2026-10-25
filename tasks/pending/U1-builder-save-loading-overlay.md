@@ -1,0 +1,28 @@
+# U1. Builder: loading overlay instead of replacing the builder on save
+
+- **Goal:** Saving a Zap never makes the builder disappear. While a save (or the reload right after it) is in progress, a loading overlay covers the builder, and the builder stays visible underneath.
+- **Current behavior:** saving a new Zap replaces the whole builder with a spinner:
+  - Save in create mode navigates from `/zaps/new` to `/zaps/:id`, a different route, so Angular creates a new `ZapBuilderComponent`.
+  - The new instance runs `loadEdit()`, which sets `loading = true` with no `form` yet.
+  - The template then shows only the `.loading` spinner until `GET /api/zaps/:id`, `/api/apps` and the repo list come back.
+  - In edit mode, Save only shows the small spinner in the Save button (`saving`).
+- **Scope in:**
+  - A loading overlay positioned over the builder (header + steps), with the builder still rendered underneath. While it shows, the form can't be edited and Save, toggle and Delete can't be clicked.
+  - Show the overlay while saving (create and edit), in addition to the Save button's spinner.
+  - Create mode: after `POST /api/zaps` succeeds, going to `/zaps/:id` must not blank the builder. The saved Zap shows with the overlay at most, not a full-page spinner. Possible approaches (pick one and note it in the PR):
+    - pass the created Zap to the edit route (e.g. router `state`) so it doesn't need to be fetched again;
+    - keep the previous form rendered while edit mode loads.
+  - Keep the full-page spinner only for a cold load of `/zaps/:id`, where there's no builder to show yet (Screens.md → States, Initial load).
+- **Scope out:** the list page loading state; the toggle's own in-progress state (S8/S11); any change to save behavior, errors or navigation (S5, S7, E6, E8); the unsaved-changes guard (E10), which must keep working.
+- **Touches:** client: `zaps/zap-builder/zap-builder.component.{html,scss,ts,spec.ts}`; possibly `zaps/zap-builder/zap-form.ts` if the edit form is built from a passed-in Zap. No server changes.
+- **Depends on:** S5, S7, S11, E8, E9, E10 (all done).
+- **Doc refs:** Screens.md → Zap builder (Header bar → Save, States); `tasks/done/S5-create-a-zap-in-the-builder.md`, `tasks/done/S7-edit-a-zap.md`.
+- **Spec update:** Screens.md → States only lists the initial-load spinner and the Save button spinner. Add the saving overlay there in the same PR.
+- **Acceptance:**
+  - Karma:
+    - while a save request is pending, the overlay is shown, the builder (header, trigger and action cards) is still rendered, and its controls are disabled;
+    - after a successful create, navigating to `/zaps/:id` never renders the builder without the form (no full-page spinner);
+    - a cold `/zaps/:id` load still shows the full-page spinner;
+    - on a save error (`VALIDATION_ERROR`, `WEBHOOK_EXISTS`, other) the overlay goes away and the form keeps its values.
+  - Manual: create a Zap and press Save. The builder stays visible with an overlay, then shows the saved Zap in edit mode without flashing blank. Editing and saving an existing Zap behaves the same way.
+- **Size:** S
