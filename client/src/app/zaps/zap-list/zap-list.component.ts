@@ -5,9 +5,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import type { AppDto, ZapDto } from '@zaps/shared';
-import { forkJoin } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
 import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapCardComponent, ZapToggleEvent } from './zap-card.component';
 
@@ -25,10 +26,13 @@ export class ZapListComponent implements OnInit {
   private readonly zapsService = inject(ZapsService);
   private readonly appsService = inject(AppsService);
   private readonly dialog = inject(MatDialog);
+  private readonly zapToggle = inject(ZapToggleService);
 
   state: ListState = 'loading';
   zaps: ZapDto[] = [];
   apps: AppDto[] = [];
+  /** Zaps with an enable/disable request in flight. */
+  private readonly togglingIds = new Set<string>();
 
   ngOnInit(): void {
     this.load();
@@ -56,7 +60,25 @@ export class ZapListComponent implements OnInit {
   }
 
   /** Card toggle: enable/disable through `ZapToggleService` (S8). */
-  onToggle(_event: ZapToggleEvent): void {}
+  onToggle({ zap, enabled }: ZapToggleEvent): void {
+    if (this.togglingIds.has(zap.id)) return;
+    this.togglingIds.add(zap.id);
+    this.zapToggle
+      .setEnabled(zap, enabled)
+      .pipe(finalize(() => this.togglingIds.delete(zap.id)))
+      .subscribe({
+        next: (updated) => {
+          this.zaps = this.zaps.map((z) => (z.id === updated.id ? updated : z));
+        },
+        // The interceptor shows the snackbar; the card reverts once `toggling` turns off.
+        error: () => undefined,
+      });
+  }
+
+  /** Whether an enable/disable request for this Zap is running (its toggle is disabled). */
+  isToggling(zap: ZapDto): boolean {
+    return this.togglingIds.has(zap.id);
+  }
 
   /** Card ⋮ → Edit: opens `/zaps/:id` (S7). */
   onEdit(_zap: ZapDto): void {}
