@@ -6,7 +6,7 @@ import { Router } from 'express';
 // import { getUpdateZapRouter } from './get-update.js'; // S7
 // import { toggleZapRouter } from './toggle.js';        // S8
 // import { deleteZapRouter } from './delete.js';        // S9
-// import { zapRunsRouter } from './runs.js';            // E12
+import { zapRunsRouter } from './runs.js';               // E12
 // ---- end zap slice router imports -----------------------------------------------------
 
 /**
@@ -21,5 +21,5 @@ export const zapsRouter = Router();
 // zapsRouter.use(getUpdateZapRouter); // S7
 // zapsRouter.use(toggleZapRouter);    // S8
 // zapsRouter.use(deleteZapRouter);    // S9
-// zapsRouter.use(zapRunsRouter);      // E12
+zapsRouter.use(zapRunsRouter);         // E12
 // ---- end zap slice registrations --------------------------------------------------------
