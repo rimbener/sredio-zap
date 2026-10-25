@@ -23,7 +23,7 @@ npm workspaces monorepo:
 `/shared` compiles to `shared/dist` (plain JS + `.d.ts`), and both client and server import that build, so the server's `tsc` + `node dist` production build works unchanged. In development:
 - `npm run dev:server` and `npm run dev:client` build `shared` once before starting, so a fresh clone runs.
 - `npm run dev:shared` runs `tsc --watch` on `shared` in its own terminal. Edits are rebuilt into `dist`, which `tsx watch` and the Angular dev server pick up.
-- Typical dev setup is three terminals: `dev:shared`, `dev:server`, `dev:client` (plus `smee` for webhooks).
+- `npm run dev` builds `shared` once, then runs `dev:shared`'s watcher, the server, the client and `smee` together in one terminal via concurrently (prefixed output; stopping one stops all). The individual scripts still work in separate terminals.
 
 ## Client
 | Package | Version | Notes |
@@ -58,6 +58,7 @@ Server build: ESM (`"type": "module"`, TS `module: NodeNext`). `tsx watch` for d
 | Package | Version | Notes |
 |---|---|---|
 | tsx | ^4 | Dev runner. |
+| concurrently | ^9 | Root devDependency; `npm run dev` runs the four dev processes in one terminal. v9 supports Node 18. |
 | smee-client | ^3.1.1 | Forwards GitHub webhooks to localhost and keeps the URL query string (used for per-Zap hook URLs). `npm run smee` runs `server/scripts/smee.ts`, which reads the channel from `WEBHOOK_PUBLIC_URL` in `.env` (one variable for both GitHub and smee). **Not v4/v5**, which require Node >=20. Caveat: it re-serializes the body with `JSON.stringify` instead of forwarding GitHub's exact bytes, so an HMAC mismatch is possible for some payloads (e.g. escaped unicode in a PR title). Test with non-ASCII PR titles; if it fails, switch tunnels. Never weaken the signature check. |
 | node:test | built-in | Test runner. |
 | supertest | ^7 | HTTP tests for the API and webhook handler. |

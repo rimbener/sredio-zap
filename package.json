@@ -7,6 +7,7 @@
     "client"
   ],
   "scripts": {
+    "dev": "npm run build -w shared && concurrently -k -n shared,server,client,smee -c blue,green,magenta,yellow \"npm run dev -w shared -- --preserveWatchOutput\" \"npm run dev -w server\" \"npm run start -w client\" \"npm run smee\"",
     "dev:shared": "npm run dev -w shared",
     "dev:server": "npm run build -w shared && npm run dev -w server",
     "dev:client": "npm run build -w shared && npm run start -w client",
@@ -19,5 +20,8 @@
   },
   "overrides": {
     "@types/express": "^5.0.6"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
   }
 }

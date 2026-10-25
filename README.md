@@ -88,16 +88,22 @@ This upserts the app picker's catalog (GitHub, plus GitLab, Jira, Linear and Sla
 
 ## Running
 
-Use four terminals, all from the repo root (run `nvm use` in each):
+From the repo root (after `nvm use`):
 
-| Terminal | Command | What it does |
-|---|---|---|
-| 1 | `npm run dev:shared` | Rebuilds `/shared` on every change |
-| 2 | `npm run dev:server` | API on <http://localhost:3000>, restarts on change |
-| 3 | `npm run dev:client` | Angular app on <http://localhost:4200> |
-| 4 | `npm run smee` | Forwards GitHub webhooks to `http://localhost:3000/webhooks/github` |
+```sh
+npm run dev
+```
 
-`dev:server` and `dev:client` build `/shared` once before starting, so they also work without terminal 1; you just won't get live updates when you edit `/shared`.
+This builds `/shared` once, then starts four processes in one terminal, with output prefixed by name. Ctrl+C (or any process exiting) stops them all.
+
+| Prefix | What it does |
+|---|---|
+| `shared` | Rebuilds `/shared` on every change |
+| `server` | API on <http://localhost:3000>, restarts on change |
+| `client` | Angular app on <http://localhost:4200> |
+| `smee` | Forwards GitHub webhooks to `http://localhost:3000/webhooks/github` |
+
+You can also run them separately, one terminal each: `npm run dev:shared`, `npm run dev:server`, `npm run dev:client` and `npm run smee`. `dev:server` and `dev:client` build `/shared` once before starting, so they also work without `dev:shared`; you just won't get live updates when you edit `/shared`.
 
 ### Try your first Zap
 
