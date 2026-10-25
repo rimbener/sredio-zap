@@ -54,3 +54,5 @@ Server config is `server/.env` (copy from `.env.example`); the server validates 
 
 - Use always conventional commits
 - Check if it's needed to update this file and the README.md file every time a change is requested
+- Never commit or push directly to `main`. Work on a feature branch (e.g. `feat/f1-shared-contracts`) and open a PR against `main`; never merge PRs, the user reviews and merges them
+- Make no commits, pushes or PRs unless the user asks for them
