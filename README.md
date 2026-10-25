@@ -107,7 +107,7 @@ Use four terminals, all from the repo root (run `nvm use` in each):
 5. Click **Save**, then turn the Zap **on**. This creates a webhook on the repo.
 6. Open a pull request on that repo. The comment appears on it within a few seconds.
 
-You can edit a Zap while it's on. If you change its repo, Save moves the webhook: the Zap gets a webhook on the new repo first, then the old one is removed.
+You can edit a Zap while it's on; the builder then shows "This Zap is on. Saving changes to the repository moves its webhook." If you change its repo, Save creates a webhook on the new repo first, then removes the old one. A change in letter case only (`Acme/API` vs `acme/api`) isn't a move. If the new repo still has an old webhook from this Zap, Save shows a dialog linking to it: delete it on GitHub and save again (see [Troubleshooting](#this-repo-still-has-an-old-webhook-from-this-zap)).
 
 ### How a Zap works
 
