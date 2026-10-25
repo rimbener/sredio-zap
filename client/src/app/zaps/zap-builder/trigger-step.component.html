@@ -29,7 +29,10 @@
           No matching repos. You need admin rights on a public repo.
         </mat-option>
       </mat-autocomplete>
-      <mat-hint>Only public repos where you're an admin are listed. Some organization repos may block third-party apps.</mat-hint>
+      <mat-hint *ngIf="repoMissing" class="repo-missing">
+        This repo isn't in your list anymore; you may have lost admin access.
+      </mat-hint>
+      <mat-hint *ngIf="!repoMissing">Only public repos where you're an admin are listed. Some organization repos may block third-party apps.</mat-hint>
       <mat-error>Pick a repository from the list</mat-error>
     </mat-form-field>
   </div>

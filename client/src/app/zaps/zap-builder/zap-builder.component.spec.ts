@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import type { RepoDto } from '@zaps/shared';
-import { of, throwError } from 'rxjs';
+import type { RepoDto, ZapDto } from '@zaps/shared';
+import { Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
 import { NotificationService } from '../../core/notification.service';
@@ -166,5 +166,161 @@ describe('ZapBuilderComponent (create mode)', () => {
     const { el } = render();
     const toggle = el.querySelector<HTMLButtonElement>('mat-slide-toggle button')!;
     expect(toggle.disabled).toBeTrue();
+  });
+});
+
+describe('ZapBuilderComponent (edit mode)', () => {
+  const SAVED = makeZap({
+    name: 'Thank PRs',
+    trigger: { app: 'github', event: 'pull_request.opened', config: { owner: 'acme', repo: 'api' } },
+    action: { app: 'github', event: 'pull_request.comment', config: { body: 'Thanks!' } },
+  });
+
+  let zaps: jasmine.SpyObj<ZapsService>;
+  let notifications: jasmine.SpyObj<NotificationService>;
+  let zap$: Subject<ZapDto>;
+
+  function render() {
+    zaps = jasmine.createSpyObj<ZapsService>('ZapsService', ['get', 'update', 'create']);
+    zap$ = new Subject<ZapDto>();
+    zaps.get.and.returnValue(zap$);
+    notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['show']);
+    TestBed.configureTestingModule({
+      imports: [ZapBuilderComponent],
+      providers: [
+        provideRouter([]),
+        provideNoopAnimations(),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({ id: SAVED.id }), queryParamMap: convertToParamMap({}) },
+          },
+        },
+        { provide: AppsService, useValue: { getApps: () => of([GITHUB]) } },
+        { provide: GithubService, useValue: { getRepos: () => of(REPOS) } },
+        { provide: ZapsService, useValue: zaps },
+        { provide: NotificationService, useValue: notifications },
+      ],
+    });
+    const fixture = TestBed.createComponent(ZapBuilderComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+    const saveButton = () => el.querySelector<HTMLButtonElement>('button.save')!;
+    /** Delivers the Zap, finishing the initial load. */
+    const load = (zap = SAVED) => {
+      zap$.next(zap);
+      zap$.complete();
+      fixture.detectChanges();
+      return component.form!;
+    };
+    return { fixture, component, el, saveButton, load };
+  }
+
+  it('shows a spinner until the Zap, apps and repos load, then the saved values, pristine', () => {
+    const { el, component, load } = render();
+    expect(zaps.get).toHaveBeenCalledWith(SAVED.id);
+    expect(el.querySelector('.loading mat-spinner')).not.toBeNull();
+    expect(component.form).toBeNull();
+
+    const form = load();
+    expect(el.querySelector('.loading')).toBeNull();
+    expect(form.pristine).toBeTrue();
+    expect(form.valid).toBeTrue();
+    expect(form.getRawValue()).toEqual({
+      name: 'Thank PRs',
+      trigger: {
+        event: 'pull_request.opened',
+        repo: { owner: 'acme', repo: 'api', fullName: 'acme/api', htmlUrl: 'https://github.com/acme/api' },
+      },
+      action: { event: 'pull_request.comment', body: 'Thanks!' },
+    });
+    expect(component.repos).toEqual(REPOS);
+  });
+
+  it('Save is disabled until something changes', () => {
+    const { fixture, saveButton, load } = render();
+    const form = load();
+    expect(saveButton().disabled).toBeTrue();
+    form.controls.name.setValue('Renamed');
+    form.markAsDirty();
+    fixture.detectChanges();
+    expect(saveButton().disabled).toBeFalse();
+  });
+
+  it('a rename PATCHes only the name, then marks pristine and shows "Saved"', () => {
+    const { fixture, saveButton, load, component } = render();
+    const form = load();
+    const renamed = { ...SAVED, name: 'Renamed', updatedAt: '2026-10-26T10:00:00.000Z' };
+    zaps.update.and.returnValue(of(renamed));
+
+    form.controls.name.setValue('Renamed');
+    form.markAsDirty();
+    fixture.detectChanges();
+    saveButton().click();
+    fixture.detectChanges();
+
+    expect(zaps.update).toHaveBeenCalledOnceWith(SAVED.id, { name: 'Renamed' });
+    expect(zaps.create).not.toHaveBeenCalled();
+    expect(form.pristine).toBeTrue();
+    expect(notifications.show).toHaveBeenCalledWith('Saved');
+    expect(component.zap).toEqual(renamed);
+    expect(saveButton().disabled).toBeTrue();
+  });
+
+  it('a new repo and comment PATCH whole trigger and action steps, without the name', () => {
+    const { fixture, saveButton, load } = render();
+    const form = load();
+    zaps.update.and.returnValue(of(SAVED));
+
+    form.controls.trigger.controls.repo.setValue(REPOS[1]);
+    form.controls.action.controls.body.setValue('Hi {{pr.author}}');
+    form.markAsDirty();
+    fixture.detectChanges();
+    saveButton().click();
+
+    expect(zaps.update).toHaveBeenCalledOnceWith(SAVED.id, {
+      trigger: { app: 'github', event: 'pull_request.opened', config: { owner: 'me', repo: 'site' } },
+      action: { app: 'github', event: 'pull_request.comment', config: { body: 'Hi {{pr.author}}' } },
+    });
+  });
+
+  it('edits reverted to the saved values send no request', () => {
+    const { fixture, saveButton, load } = render();
+    const form = load();
+    form.controls.name.setValue('Renamed');
+    form.controls.name.setValue('Thank PRs');
+    form.markAsDirty();
+    fixture.detectChanges();
+    saveButton().click();
+
+    expect(zaps.update).not.toHaveBeenCalled();
+    expect(form.pristine).toBeTrue();
+  });
+
+  it('a failed PATCH keeps the form dirty and re-enables Save', () => {
+    const { fixture, saveButton, load, component } = render();
+    const form = load();
+    zaps.update.and.returnValue(throwError(() => new Error('boom')));
+    form.controls.name.setValue('Renamed');
+    form.markAsDirty();
+    fixture.detectChanges();
+    saveButton().click();
+    fixture.detectChanges();
+
+    expect(component.saving).toBeFalse();
+    expect(form.dirty).toBeTrue();
+    expect(component.zap).toEqual(SAVED);
+    expect(saveButton().disabled).toBeFalse();
+    expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  it('a failed load hides the spinner and shows no form', () => {
+    const { fixture, el, component } = render();
+    zap$.error(new Error('boom'));
+    fixture.detectChanges();
+    expect(component.loading).toBeFalse();
+    expect(el.querySelector('.loading')).toBeNull();
+    expect(component.form).toBeNull();
   });
 });

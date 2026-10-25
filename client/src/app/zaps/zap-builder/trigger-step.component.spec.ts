@@ -57,4 +57,31 @@ describe('TriggerStepComponent', () => {
     expect(component.summary).toBe('Pull request opened in acme/api');
     expect(el.textContent).toContain('Pull request opened in acme/api');
   });
+
+  describe('saved repo missing from the list', () => {
+    const MISSING_HINT = "This repo isn't in your list anymore; you may have lost admin access.";
+    const gone: RepoDto = { owner: 'old', repo: 'repo', fullName: 'old/repo', htmlUrl: 'https://github.com/old/repo' };
+
+    it('shows the hint and keeps the saved repo valid', () => {
+      const { fixture, group, el } = render();
+      fixture.componentInstance.reposLoaded = true;
+      group.controls.repo.setValue(gone);
+      fixture.detectChanges();
+      expect(group.valid).toBeTrue();
+      expect(el.textContent).toContain(MISSING_HINT);
+    });
+
+    it('no hint for a listed repo (case-insensitive) or when the list failed to load', () => {
+      const { fixture, group, el } = render();
+      fixture.componentInstance.reposLoaded = true;
+      group.controls.repo.setValue({ ...REPOS[1], owner: 'acme', repo: 'web' });
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain(MISSING_HINT);
+
+      fixture.componentInstance.reposLoaded = false;
+      group.controls.repo.setValue(gone);
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain(MISSING_HINT);
+    });
+  });
 });

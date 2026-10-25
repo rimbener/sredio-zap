@@ -68,6 +68,20 @@ describe('ZapCardComponent', () => {
     expect(button().getAttribute('aria-checked')).toBe('false');
   });
 
+  it('emits edit when the card is clicked, but not from the toggle or the ⋮ button', () => {
+    const zap = makeZap();
+    const el = render(zap);
+    const edits: ZapDto[] = [];
+    fixture.componentInstance.edit.subscribe((z) => edits.push(z));
+
+    el.querySelector<HTMLButtonElement>('.toggle button')!.click();
+    el.querySelector<HTMLButtonElement>('.menu-button')!.click();
+    expect(edits).toEqual([]);
+
+    el.querySelector<HTMLElement>('.summary')!.click();
+    expect(edits).toEqual([zap]);
+  });
+
   it('emits edit and delete from the ⋮ menu', () => {
     const zap = makeZap();
     const el = render(zap);

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { Router, provideRouter } from '@angular/router';
 import type { ZapDto } from '@zaps/shared';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
@@ -36,6 +37,7 @@ describe('ZapListComponent', () => {
       imports: [ZapListComponent],
       providers: [
         provideNoopAnimations(),
+        provideRouter([]),
         { provide: ZapsService, useValue: { list, delete: deleteZap } },
         { provide: MatDialog, useValue: { open: dialogOpen } },
         { provide: AppsService, useValue: { getApps: () => of([GITHUB_APP]) } },
@@ -234,5 +236,16 @@ describe('ZapListComponent', () => {
       expect(deleteZap).toHaveBeenCalledOnceWith(target.id);
       expect(cardNames(el)).toEqual(['Keep me', 'Thank PRs']);
     });
+  });
+
+  it('clicking a card opens the builder at /zaps/:id', () => {
+    const zap = makeZap();
+    list.and.returnValue(of([zap]));
+    const el = render();
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+    el.querySelector<HTMLElement>('app-zap-card .summary')!.click();
+
+    expect(navigate).toHaveBeenCalledWith(['/zaps', zap.id]);
   });
 });

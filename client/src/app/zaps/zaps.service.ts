@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { CreateZapInput, ZapDto } from '@zaps/shared';
+import type { CreateZapInput, PatchZapInput, ZapDto } from '@zaps/shared';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -23,5 +23,15 @@ export class ZapsService {
   /** `DELETE /api/zaps/:id`: deletes the Zap, its runs and its webhook (`204`). */
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.url}/${id}`);
+  }
+
+  /** `GET /api/zaps/:id`: one of the user's Zaps. */
+  get(id: string): Observable<ZapDto> {
+    return this.http.get<ZapDto>(`${this.url}/${id}`);
+  }
+
+  /** `PATCH /api/zaps/:id`: sends only the changed top-level fields; returns the saved Zap. */
+  update(id: string, patch: PatchZapInput): Observable<ZapDto> {
+    return this.http.patch<ZapDto>(`${this.url}/${id}`, patch);
   }
 }
