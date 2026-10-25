@@ -1,3 +1,4 @@
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
@@ -35,5 +36,18 @@ describe('ShellComponent', () => {
 
     const avatar = (fixture.nativeElement as HTMLElement).querySelector<HTMLImageElement>('.avatar');
     expect(avatar?.src).toBe('https://example.com/a.png');
+  });
+
+  it('opens the avatar menu with the login and Sign out', () => {
+    user$.next({ id: 'u1', login: 'octocat', name: null, avatarUrl: 'https://example.com/a.png' });
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.avatar-button')!.click();
+    fixture.detectChanges();
+
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    const items = Array.from(overlay.querySelectorAll('[mat-menu-item]')).map((item) => item.textContent?.trim());
+    expect(items).toEqual(['octocat', 'Sign out']);
   });
 });
