@@ -31,8 +31,8 @@ describe('form-errors', () => {
     form.controls.trigger.controls.repo.setValue(REPO);
   });
 
-  it('saveContext() opts the save out of the VALIDATION_ERROR snackbar', () => {
-    expect(saveContext().get(HANDLED_ERROR_CODES)).toEqual(['VALIDATION_ERROR']);
+  it('saveContext() opts the save out of the VALIDATION_ERROR and WEBHOOK_EXISTS snackbars', () => {
+    expect(saveContext().get(HANDLED_ERROR_CODES)).toEqual(['VALIDATION_ERROR', 'WEBHOOK_EXISTS']);
   });
 
   it('maps request paths to the builder controls', () => {

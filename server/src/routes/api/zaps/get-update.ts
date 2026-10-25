@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { ZodError } from 'zod';
 import { AppModel } from '../../../models/app.js';
 import { findOwnedZap, toZapDto } from '../../../zaps/index.js';
+import { isSameRepo, saveWithMovedWebhook, type RepoConfig } from '../../../zaps/move-webhook.js';
 
 /** `400 VALIDATION_ERROR` on `appId`, in the same zod-issue shape as the body checks. */
 function appIdError(message: string): ZodError {
@@ -12,7 +13,8 @@ function appIdError(message: string): ZodError {
 /**
  * `GET /api/zaps/:id` and `PATCH /api/zaps/:id` (API.md → Zaps). PATCH merges the body
  * into the stored Zap at the top level (a sent step replaces the whole step), validates the
- * merged Zap with the shared schema and checks `appId` ↔ `trigger.app`.
+ * merged Zap with the shared schema and checks `appId` ↔ `trigger.app`. On an enabled Zap whose
+ * trigger repo changes (case-insensitive), the webhook moves to the new repo (`saveWithMovedWebhook`).
  */
 export const getUpdateZapRouter = Router();
 
@@ -39,9 +41,14 @@ getUpdateZapRouter.patch('/:id', async (req, res) => {
     throw appIdError(`App doesn't match the trigger app ${merged.trigger.app}`);
   }
 
-  // A repo change on an enabled Zap moves its webhook; that's E6. Until then this saves the
-  // Zap as-is, so don't change the repo of an enabled Zap (Tasks.md → Spec gaps, 10).
-  zap.set({ appId: merged.appId, name: merged.name, trigger: merged.trigger, action: merged.action });
-  await zap.save();
+  const changes = { appId: merged.appId, name: merged.name, trigger: merged.trigger, action: merged.action };
+  const newRepo = merged.trigger.config as RepoConfig;
+  if (zap.enabled && !isSameRepo(current.trigger.config as RepoConfig, newRepo)) {
+    // A repo change on an enabled Zap moves its webhook: create new → save → remove old (E6).
+    await saveWithMovedWebhook(req.user!, zap, { ...changes, trigger: { ...merged.trigger, config: newRepo } });
+  } else {
+    zap.set(changes);
+    await zap.save();
+  }
   res.json(toZapDto(zap));
 });

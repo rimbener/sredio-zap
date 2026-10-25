@@ -10,8 +10,11 @@ import { ZapForm } from './zap-form';
  * (Screens.md → Error handling, `VALIDATION_ERROR`).
  */
 
-/** Codes the builder's Save handles itself instead of the interceptor's snackbar. */
-export const SAVE_HANDLED_ERROR_CODES: ErrorCode[] = ['VALIDATION_ERROR'];
+/**
+ * Codes the builder's Save handles itself instead of the interceptor's snackbar: field errors
+ * (E8) and the leftover-webhook dialog on a repo move (E6).
+ */
+export const SAVE_HANDLED_ERROR_CODES: ErrorCode[] = ['VALIDATION_ERROR', 'WEBHOOK_EXISTS'];
 
 /** The `HttpContext` for the builder's `POST /api/zaps` and `PATCH /api/zaps/:id`. */
 export function saveContext(): HttpContext {

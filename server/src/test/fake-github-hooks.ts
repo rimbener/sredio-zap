@@ -8,6 +8,8 @@ export interface FakeHooksOptions {
   hookPages?: Array<Array<{ id: number; url: string }>> | 'fail';
   /** Status of the list error when `hookPages` is `'fail'` (default 500). */
   listFailStatus?: number;
+  /** Status for `DELETE /repos/{owner}/{repo}/hooks/{id}` (default 204). */
+  deleteStatus?: number;
 }
 
 export interface FakeHooks {
@@ -20,7 +22,13 @@ export interface FakeHooks {
  * A real Octokit whose `fetch` serves canned hook responses, so `RequestError`s and
  * `Link`-header pagination behave like GitHub's (no HTTP mocking library needed).
  */
-export function fakeHooksOctokit({ createStatus = 201, createdId = 1, hookPages = [[]], listFailStatus = 500 }: FakeHooksOptions = {}): FakeHooks {
+export function fakeHooksOctokit({
+  createStatus = 201,
+  createdId = 1,
+  hookPages = [[]],
+  listFailStatus = 500,
+  deleteStatus = 204,
+}: FakeHooksOptions = {}): FakeHooks {
   const requests: string[] = [];
   const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -29,6 +37,9 @@ export function fakeHooksOctokit({ createStatus = 201, createdId = 1, hookPages 
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
     const method = (init?.method ?? 'GET').toUpperCase();
     requests.push(`${method} ${url.pathname}${url.search}`);
+    if (method === 'DELETE' && /^\/repos\/[^/]+\/[^/]+\/hooks\/\d+$/.test(url.pathname)) {
+      return deleteStatus === 204 ? new Response(null, { status: 204 }) : json(deleteStatus, { message: 'Delete failed' });
+    }
     if (!/^\/repos\/[^/]+\/[^/]+\/hooks$/.test(url.pathname)) return json(404, { message: 'Not Found' });
 
     if (method === 'POST') {

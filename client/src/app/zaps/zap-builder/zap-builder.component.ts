@@ -22,6 +22,7 @@ import { GithubService } from '../../core/github.service';
 import { HANDLED_ERROR_CODES } from '../../core/http-error.interceptor';
 import { NotificationService } from '../../core/notification.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { WEBHOOK_EXISTS_SAVE_MESSAGE, WebhookExistsDialogComponent } from '../webhook-exists-dialog.component';
 import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ActionStepComponent } from './action-step.component';
@@ -68,6 +69,10 @@ export class ZapBuilderComponent implements OnInit {
 
   /** Snackbar for `/zaps/new` with a missing, unknown or coming-soon `appId` (E9). */
   static readonly APP_UNAVAILABLE_MESSAGE = "This app isn't available yet.";
+
+  /** Info banner while editing an enabled Zap (Screens.md → States, E6). */
+  static readonly ENABLED_BANNER = 'This Zap is on. Saving changes to the repository moves its webhook.';
+  readonly enabledBanner = ZapBuilderComponent.ENABLED_BANNER;
 
   static readonly TOGGLE_TOOLTIP = 'Save your changes before turning this Zap on/off';
   readonly toggleTooltip = ZapBuilderComponent.TOGGLE_TOOLTIP;
@@ -282,9 +287,18 @@ export class ZapBuilderComponent implements OnInit {
     });
   }
 
-  /** `VALIDATION_ERROR` on Save: field errors, and a snackbar for what no field shows (E8). */
+  /**
+   * Save errors the builder handles itself: `VALIDATION_ERROR` → field errors, and a snackbar
+   * for what no field shows (E8); `WEBHOOK_EXISTS` (repo move on an enabled Zap) → the
+   * leftover-webhook dialog with the Save text, nothing saved and the form left dirty (E6).
+   */
   private showSaveError(form: ZapForm, error: unknown): void {
-    if (!(error instanceof ApiError) || error.code !== 'VALIDATION_ERROR') return;
+    if (!(error instanceof ApiError)) return;
+    if (error.code === 'WEBHOOK_EXISTS') {
+      WebhookExistsDialogComponent.open(this.dialog, error, WEBHOOK_EXISTS_SAVE_MESSAGE);
+      return;
+    }
+    if (error.code !== 'VALIDATION_ERROR') return;
     const message = applyValidationErrors(form, error);
     if (message) this.notifications.show(message);
   }
