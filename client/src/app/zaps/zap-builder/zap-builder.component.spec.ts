@@ -1,3 +1,4 @@
+import { HttpContext } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
@@ -142,7 +143,7 @@ describe('ZapBuilderComponent (create mode)', () => {
       name: 'Untitled Zap',
       trigger: { app: 'github', event: 'pull_request.opened', config: { owner: 'acme', repo: 'api' } },
       action: { app: 'github', event: 'pull_request.comment', config: { body: DEFAULT_COMMENT_BODY } },
-    });
+    }, jasmine.any(HttpContext));
     expect(navigate).toHaveBeenCalledWith(['/zaps', ZAP.id], { replaceUrl: true });
     expect(notifications.show).toHaveBeenCalledWith('Saved');
   });
@@ -260,7 +261,7 @@ describe('ZapBuilderComponent (edit mode)', () => {
     saveButton().click();
     fixture.detectChanges();
 
-    expect(zaps.update).toHaveBeenCalledOnceWith(SAVED.id, { name: 'Renamed' });
+    expect(zaps.update).toHaveBeenCalledOnceWith(SAVED.id, { name: 'Renamed' }, jasmine.any(HttpContext));
     expect(zaps.create).not.toHaveBeenCalled();
     expect(form.pristine).toBeTrue();
     expect(notifications.show).toHaveBeenCalledWith('Saved');
@@ -282,7 +283,7 @@ describe('ZapBuilderComponent (edit mode)', () => {
     expect(zaps.update).toHaveBeenCalledOnceWith(SAVED.id, {
       trigger: { app: 'github', event: 'pull_request.opened', config: { owner: 'me', repo: 'site' } },
       action: { app: 'github', event: 'pull_request.comment', config: { body: 'Hi {{pr.author}}' } },
-    });
+    }, jasmine.any(HttpContext));
   });
 
   it('edits reverted to the saved values send no request', () => {

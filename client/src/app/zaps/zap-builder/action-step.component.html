@@ -9,6 +9,7 @@
       <mat-select formControlName="event">
         <mat-option *ngFor="let action of app.actions" [value]="action.key">{{ action.name }}</mat-option>
       </mat-select>
+      <mat-error>{{ group.controls.event.getError('zod') }}</mat-error>
     </mat-form-field>
 
     <div class="insert-row">
