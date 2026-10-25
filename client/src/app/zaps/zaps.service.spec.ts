@@ -1,3 +1,4 @@
+import { HttpContext } from '@angular/common/http';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { CreateZapInput, ZapDto } from '@zaps/shared';
@@ -77,5 +78,15 @@ describe('ZapsService', () => {
     expect(req.request.body).toEqual({ name: 'Renamed' });
     req.flush(zap);
     expect(result).toEqual(zap);
+  });
+
+  it('create() and update() send the given HttpContext', () => {
+    const context = new HttpContext();
+    const zap = makeZap();
+    service.create({ appId: zap.appId, name: zap.name, trigger: zap.trigger, action: zap.action }, context).subscribe();
+    service.update(zap.id, { name: 'Renamed' }, context).subscribe();
+
+    expect(http.expectOne(`${environment.apiUrl}/api/zaps`).request.context).toBe(context);
+    expect(http.expectOne(`${environment.apiUrl}/api/zaps/${zap.id}`).request.context).toBe(context);
   });
 });

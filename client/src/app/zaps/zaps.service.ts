@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { CreateZapInput, PatchZapInput, ZapDto } from '@zaps/shared';
 import { Observable } from 'rxjs';
@@ -15,9 +15,9 @@ export class ZapsService {
     return this.http.get<ZapDto[]>(this.url);
   }
 
-  /** `POST /api/zaps`: the new Zap, always disabled. */
-  create(input: CreateZapInput): Observable<ZapDto> {
-    return this.http.post<ZapDto>(this.url, input);
+  /** `POST /api/zaps`: the new Zap, always disabled. `context` can opt out of snackbars. */
+  create(input: CreateZapInput, context?: HttpContext): Observable<ZapDto> {
+    return this.http.post<ZapDto>(this.url, input, { context });
   }
 
   /** `DELETE /api/zaps/:id`: deletes the Zap, its runs and its webhook (`204`). */
@@ -31,7 +31,7 @@ export class ZapsService {
   }
 
   /** `PATCH /api/zaps/:id`: sends only the changed top-level fields; returns the saved Zap. */
-  update(id: string, patch: PatchZapInput): Observable<ZapDto> {
-    return this.http.patch<ZapDto>(`${this.url}/${id}`, patch);
+  update(id: string, patch: PatchZapInput, context?: HttpContext): Observable<ZapDto> {
+    return this.http.patch<ZapDto>(`${this.url}/${id}`, patch, { context });
   }
 }

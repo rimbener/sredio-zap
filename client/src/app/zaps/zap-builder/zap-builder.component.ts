@@ -13,11 +13,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type { AppDto, RepoDto, ZapDto } from '@zaps/shared';
 import { Observable, catchError, forkJoin, of } from 'rxjs';
+import { ApiError } from '../../core/api-error';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
 import { NotificationService } from '../../core/notification.service';
 import { ZapsService } from '../zaps.service';
 import { ActionStepComponent } from './action-step.component';
+import { applyValidationErrors, saveContext } from './form-errors';
 import { TriggerStepComponent } from './trigger-step.component';
 import { ZapForm, createZapForm, editZapForm, toCreateZapInput, toPatchZapInput } from './zap-form';
 
@@ -149,7 +151,7 @@ export class ZapBuilderComponent implements OnInit {
 
   private create(app: AppDto, form: ZapForm): void {
     this.saving = true;
-    this.zaps.create(toCreateZapInput(app, form.getRawValue())).subscribe({
+    this.zaps.create(toCreateZapInput(app, form.getRawValue()), saveContext()).subscribe({
       next: (zap) => {
         // Pristine first, so the unsaved-changes guard (E10) doesn't block the navigation.
         form.markAsPristine();
@@ -157,9 +159,10 @@ export class ZapBuilderComponent implements OnInit {
         this.notifications.show('Saved');
         this.saving = false;
       },
-      error: () => {
-        // The interceptor shows the snackbar; the form keeps its values.
+      error: (error: unknown) => {
+        // The form keeps its values; the interceptor shows the snackbar for other codes.
         this.saving = false;
+        this.showSaveError(form, error);
       },
     });
   }
@@ -174,17 +177,25 @@ export class ZapBuilderComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.zaps.update(saved.id, patch).subscribe({
+    this.zaps.update(saved.id, patch, saveContext()).subscribe({
       next: (zap) => {
         this.zap = zap;
         form.markAsPristine();
         this.notifications.show('Saved');
         this.saving = false;
       },
-      error: () => {
-        // The interceptor shows the snackbar; the form stays dirty with its values.
+      error: (error: unknown) => {
+        // The form stays dirty with its values; the interceptor shows the snackbar for other codes.
         this.saving = false;
+        this.showSaveError(form, error);
       },
     });
+  }
+
+  /** `VALIDATION_ERROR` on Save: field errors, and a snackbar for what no field shows (E8). */
+  private showSaveError(form: ZapForm, error: unknown): void {
+    if (!(error instanceof ApiError) || error.code !== 'VALIDATION_ERROR') return;
+    const message = applyValidationErrors(form, error);
+    if (message) this.notifications.show(message);
   }
 }
