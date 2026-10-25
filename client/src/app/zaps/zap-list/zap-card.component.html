@@ -1,0 +1,38 @@
+<mat-card class="zap-card">
+  <mat-card-header>
+    <img *ngIf="app" mat-card-avatar class="app-icon" [src]="app.icon" [alt]="app.name" />
+    <mat-card-title class="name">{{ zap.name }}</mat-card-title>
+    <mat-card-subtitle *ngIf="app" class="app-name">{{ app.name }}</mat-card-subtitle>
+    <button
+      mat-icon-button
+      type="button"
+      class="menu-button"
+      [matMenuTriggerFor]="zapMenu"
+      [attr.aria-label]="'Actions for ' + zap.name"
+      (click)="$event.stopPropagation()"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #zapMenu="matMenu">
+      <button mat-menu-item type="button" class="edit-item" (click)="onEdit()">Edit</button>
+      <button mat-menu-item type="button" class="delete-item" (click)="onDelete()">Delete</button>
+    </mat-menu>
+  </mat-card-header>
+
+  <mat-card-content>
+    <p class="summary">{{ summary }}</p>
+    <p class="updated">Updated {{ zap.updatedAt | date: 'mediumDate' }}</p>
+  </mat-card-content>
+
+  <mat-card-actions align="end">
+    <mat-slide-toggle
+      class="toggle"
+      [checked]="zap.enabled"
+      [attr.aria-label]="(zap.enabled ? 'Turn off ' : 'Turn on ') + zap.name"
+      (click)="$event.stopPropagation()"
+      (change)="onToggle($event)"
+    >
+      {{ zap.enabled ? 'On' : 'Off' }}
+    </mat-slide-toggle>
+  </mat-card-actions>
+</mat-card>
