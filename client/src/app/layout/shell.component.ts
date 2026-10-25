@@ -3,7 +3,7 @@ import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 
 /** Toolbar plus router outlet, shown on every screen except Login (Screens.md → App shell). */
@@ -17,8 +17,16 @@ import { AuthService } from '../core/auth.service';
 export class ShellComponent {
   readonly user$ = this.auth.user$;
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly router: Router,
+  ) {}
 
-  /** Sign out arrives with S2. */
-  onSignOut(): void {}
+  /** `POST /auth/logout`, then `/login` (the service clears the user). Errors: interceptor snackbar. */
+  onSignOut(): void {
+    this.auth.logout().subscribe({
+      next: () => void this.router.navigate(['/login']),
+      error: () => undefined,
+    });
+  }
 }

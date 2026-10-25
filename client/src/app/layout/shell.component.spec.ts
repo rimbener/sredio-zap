@@ -1,21 +1,36 @@
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
-import { BehaviorSubject } from 'rxjs';
+import { Router, provideRouter } from '@angular/router';
+import { BehaviorSubject, of, throwError } from 'rxjs';
 import { AuthState, AuthService } from '../core/auth.service';
 import { ShellComponent } from './shell.component';
 
 describe('ShellComponent', () => {
   let user$: BehaviorSubject<AuthState>;
+  let logout: jasmine.Spy;
 
   beforeEach(() => {
     user$ = new BehaviorSubject<AuthState>(undefined);
+    logout = jasmine.createSpy('logout').and.returnValue(of(undefined));
     TestBed.configureTestingModule({
       imports: [ShellComponent],
-      providers: [provideRouter([]), provideNoopAnimations(), { provide: AuthService, useValue: { user$ } }],
+      providers: [provideRouter([]), provideNoopAnimations(), { provide: AuthService, useValue: { user$, logout } }],
     });
   });
+
+  function clickSignOut(): void {
+    user$.next({ id: 'u1', login: 'octocat', name: null, avatarUrl: 'https://example.com/a.png' });
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.avatar-button')!.click();
+    fixture.detectChanges();
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    const signOut = Array.from(overlay.querySelectorAll<HTMLButtonElement>('button[mat-menu-item]')).find(
+      (item) => item.textContent?.trim() === 'Sign out',
+    );
+    signOut!.click();
+  }
 
   it('shows the "⚡ Zaps" link to /zaps and a router outlet', () => {
     const fixture = TestBed.createComponent(ShellComponent);
@@ -49,5 +64,25 @@ describe('ShellComponent', () => {
     const overlay = TestBed.inject(OverlayContainer).getContainerElement();
     const items = Array.from(overlay.querySelectorAll('[mat-menu-item]')).map((item) => item.textContent?.trim());
     expect(items).toEqual(['octocat', 'Sign out']);
+  });
+
+  it('Sign out calls AuthService.logout(), then navigates to /login', () => {
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+    clickSignOut();
+
+    expect(logout).toHaveBeenCalledOnceWith();
+    expect(navigate).toHaveBeenCalledOnceWith(['/login']);
+    expect(logout).toHaveBeenCalledBefore(navigate);
+  });
+
+  it('stays put when sign out fails', () => {
+    logout.and.returnValue(throwError(() => new Error('boom')));
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+
+    clickSignOut();
+
+    expect(logout).toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
