@@ -7,10 +7,13 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type { RepoDto, ZapDto } from '@zaps/shared';
 import { Observable, Subject, of, throwError } from 'rxjs';
+import { ApiError } from '../../core/api-error';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
+import { HANDLED_ERROR_CODES } from '../../core/http-error.interceptor';
 import { NotificationService } from '../../core/notification.service';
 import { GITHUB_APP as GITHUB, makeZap } from '../testing/zap-fixtures';
+import { WEBHOOK_EXISTS_SAVE_MESSAGE, WebhookExistsDialogComponent } from '../webhook-exists-dialog.component';
 import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapBuilderComponent } from './zap-builder.component';
@@ -334,6 +337,51 @@ describe('ZapBuilderComponent (edit mode)', () => {
     expect(component.zap).toEqual(SAVED);
     expect(saveButton().disabled).toBeFalse();
     expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  describe('repo move on an enabled Zap (E6)', () => {
+    const ENABLED = { ...SAVED, enabled: true };
+    const banner = (el: HTMLElement) => el.querySelector('.enabled-banner');
+
+    it('shows the info banner when the Zap is on', () => {
+      const { el, load } = render();
+      load(ENABLED);
+      expect(banner(el)?.textContent).toContain(
+        'This Zap is on. Saving changes to the repository moves its webhook.',
+      );
+    });
+
+    it('shows no banner when the Zap is off', () => {
+      const { el, load } = render();
+      load();
+      expect(banner(el)).toBeNull();
+    });
+
+    it('409 WEBHOOK_EXISTS on Save opens the dialog with the Save text and keeps the form dirty with its values', () => {
+      const { fixture, saveButton, load, component } = render();
+      const form = load(ENABLED);
+      const hookSettingsUrl = 'https://github.com/me/site/settings/hooks/987';
+      zaps.update.and.returnValue(
+        throwError(() => new ApiError(409, 'WEBHOOK_EXISTS', 'Leftover hook', { hookSettingsUrl })),
+      );
+
+      form.controls.trigger.controls.repo.setValue(REPOS[1]);
+      form.markAsDirty();
+      fixture.detectChanges();
+      saveButton().click();
+      fixture.detectChanges();
+
+      const context = zaps.update.calls.mostRecent().args[2] as HttpContext;
+      expect(context.get(HANDLED_ERROR_CODES)).toContain('WEBHOOK_EXISTS');
+      expect(dialog.open).toHaveBeenCalledOnceWith(WebhookExistsDialogComponent, {
+        data: { message: WEBHOOK_EXISTS_SAVE_MESSAGE, hookSettingsUrl },
+      });
+      expect(form.dirty).toBeTrue();
+      expect(form.controls.trigger.controls.repo.value).toEqual(REPOS[1]);
+      expect(component.zap).toEqual(ENABLED);
+      expect(saveButton().disabled).toBeFalse();
+      expect(notifications.show).not.toHaveBeenCalled();
+    });
   });
 
   describe('header toggle', () => {

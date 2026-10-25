@@ -8,8 +8,12 @@ import { ApiError } from '../core/api-error';
 export const WEBHOOK_EXISTS_TOGGLE_MESSAGE =
   'This repo still has an old webhook from this Zap. Delete it on GitHub, then turn the Zap on again.';
 
+/** Dialog text when the 409 came from the builder's Save (repo change on an enabled Zap, E6). */
+export const WEBHOOK_EXISTS_SAVE_MESSAGE =
+  'This repo still has an old webhook from this Zap. Delete it on GitHub, then save again. Your changes are kept.';
+
 export interface WebhookExistsDialogData {
-  /** Depends on where the 409 came from (toggle here; builder Save in E6). */
+  /** Depends on where the 409 came from (toggle or builder Save). */
   message: string;
   /** `details.hookSettingsUrl` from the `WEBHOOK_EXISTS` error. */
   hookSettingsUrl: string | null;
