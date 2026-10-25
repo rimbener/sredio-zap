@@ -14,8 +14,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 
 > **Status:** only the project boilerplate exists so far; the app itself isn't implemented yet (see [Tasks.md](docs/Tasks.md)). Until the relevant tasks land:
-> - `npm run seed -w server` doesn't exist yet (task F4).
-> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store); its routes arrive with the slices (sign-in: S1, apps: F4, Zaps: S3 onward, webhooks: S10).
+> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store) with `GET /api/apps`; the other routes arrive with the slices (sign-in: S1, Zaps: S3 onward, webhooks: S10).
 
 ## Prerequisites
 
