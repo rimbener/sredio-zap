@@ -162,7 +162,7 @@ One page with vertical step cards (`mat-accordion`, one panel expanded at a time
   - Otherwise it calls `enable` / `disable`, with the same revert-on-error behavior as the list.
 - **Save** (`mat-flat-button`, primary):
   - Disabled when the form is pristine or invalid; shows a spinner while saving.
-  - Create mode: `POST /api/zaps`, then mark the form pristine (`markAsPristine()`), **then** `navigate(['/zaps', id], { replaceUrl: true })`. If the order is reversed, `unsavedChangesGuard` asks to discard changes that were just saved.
+  - Create mode: `POST /api/zaps`, then mark the form pristine (`markAsPristine()`), **then** `navigate(['/zaps', id], { replaceUrl: true, state })`. If the order is reversed, `unsavedChangesGuard` asks to discard changes that were just saved. `state` carries the created Zap, its app and the repo list (`{ savedZap: { zap, app, repos } }`), so the edit-mode builder shows them at once without refetching. It's only used on a fresh in-app navigation (`trigger: 'imperative'` with a previous navigation) for the same Zap id; a reload or back/forward loads the Zap from the server.
   - Edit mode: `PATCH` with only the changed top-level fields (`name`, `trigger`, `action`).
   - Success shows a "Saved" snackbar and marks the form pristine.
 - **⋮ menu** (edit mode only): **Delete**, with the same confirm dialog as the list, then back to `/zaps`.
@@ -189,7 +189,8 @@ One page with vertical step cards (`mat-accordion`, one panel expanded at a time
 - **Preview:** live render of the body with sample data (`octocat`, `#42`, "Fix login redirect", …), using the same render function in `/shared` that the server uses.
 
 ### States
-- Initial load (edit mode): `mat-spinner` while `GET /api/zaps/:id`, `/api/apps` and the repo list load.
+- Initial load (edit mode): `mat-spinner` while `GET /api/zaps/:id`, `/api/apps` and the repo list load. Only on a cold load of `/zaps/:id`; right after a create the builder shows the saved Zap directly (see Save).
+- Saving (create and edit): besides the Save button's spinner, an overlay with a centered `mat-spinner` covers the builder (header and step cards), which stays rendered underneath. While it shows, the form is disabled and inert, and Save, the toggle and ⋮ are disabled. In create mode it stays until the edit-mode builder replaces it. On a save error it goes away and the form keeps its values (then field errors, the `WEBHOOK_EXISTS` dialog or the snackbar apply as usual).
 - 404: "Zap not found" with a link to `/zaps`.
 - Enabled Zap being edited: an info banner says "This Zap is on. Saving changes to the repository moves its webhook."
 
