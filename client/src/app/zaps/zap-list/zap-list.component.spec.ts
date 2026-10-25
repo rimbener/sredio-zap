@@ -1,19 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
+import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import type { ZapDto } from '@zaps/shared';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
 import { GITHUB_APP, makeZap } from '../testing/zap-fixtures';
 import { ApiError } from '../../core/api-error';
 import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
+import { ZapCardComponent } from './zap-card.component';
 import { ZapListComponent } from './zap-list.component';
 
 describe('ZapListComponent', () => {
   let list: jasmine.Spy<() => Observable<ZapDto[]>>;
   let setEnabled: jasmine.Spy<(zap: ZapDto, enabled: boolean) => Observable<ZapDto>>;
+  let deleteZap: jasmine.Spy<(id: string) => Observable<void>>;
+  let dialogOpen: jasmine.Spy;
   let fixture: ComponentFixture<ZapListComponent>;
 
   function render(): HTMLElement {
@@ -25,13 +30,15 @@ describe('ZapListComponent', () => {
   beforeEach(() => {
     list = jasmine.createSpy('list');
     setEnabled = jasmine.createSpy('setEnabled');
+    deleteZap = jasmine.createSpy('delete');
+    dialogOpen = jasmine.createSpy('open');
     TestBed.configureTestingModule({
       imports: [ZapListComponent],
       providers: [
         provideNoopAnimations(),
-        { provide: ZapsService, useValue: { list } },
+        { provide: ZapsService, useValue: { list, delete: deleteZap } },
+        { provide: MatDialog, useValue: { open: dialogOpen } },
         { provide: AppsService, useValue: { getApps: () => of([GITHUB_APP]) } },
-        { provide: MatDialog, useValue: jasmine.createSpyObj<MatDialog>('MatDialog', ['open']) },
         { provide: ZapToggleService, useValue: { setEnabled } },
       ],
     });
@@ -165,6 +172,67 @@ describe('ZapListComponent', () => {
       expect(toggleButton(el).disabled).toBeFalse();
       expect(toggleButton(el).getAttribute('aria-checked')).toBe('false');
       expect(fixture.componentInstance.zaps[0].enabled).toBeFalse();
+    });
+  });
+
+  describe('Delete', () => {
+    const keep = makeZap({ id: '1'.repeat(24), name: 'Keep me' });
+    const target = makeZap({ id: '2'.repeat(24), name: 'Thank PRs' });
+
+    function deleteFromList(dialogResult: boolean | undefined): HTMLElement {
+      dialogOpen.and.returnValue({ afterClosed: () => of(dialogResult) });
+      list.and.returnValue(of([keep, target]));
+      const el = render();
+      fixture.componentInstance.onDelete(target);
+      fixture.detectChanges();
+      return el;
+    }
+
+    function cardNames(el: HTMLElement): (string | undefined)[] {
+      return Array.from(el.querySelectorAll('app-zap-card .name')).map((n) => n.textContent?.trim());
+    }
+
+    beforeEach(() => spyOn(window, 'confirm'));
+
+    it('the card Delete opens the confirm dialog with the Zap name', () => {
+      dialogOpen.and.returnValue({ afterClosed: () => of(false) });
+      list.and.returnValue(of([target]));
+      render();
+      const card = fixture.debugElement.query(By.directive(ZapCardComponent));
+      (card.componentInstance as ZapCardComponent).delete.emit(target);
+
+      expect(dialogOpen).toHaveBeenCalledWith(ConfirmDialogComponent, {
+        data: {
+          title: 'Delete Zap',
+          message: 'Delete Thank PRs? Its GitHub webhook will be removed.',
+          confirmLabel: 'Delete',
+        },
+      });
+      expect(window.confirm).not.toHaveBeenCalled();
+    });
+
+    it('cancel (or Esc) does nothing', () => {
+      for (const result of [false, undefined]) {
+        deleteZap.calls.reset();
+        const el = deleteFromList(result);
+        expect(deleteZap).not.toHaveBeenCalled();
+        expect(cardNames(el)).toEqual(['Keep me', 'Thank PRs']);
+      }
+    });
+
+    it('confirm calls DELETE and removes only that card', () => {
+      deleteZap.and.returnValue(of(undefined));
+      const el = deleteFromList(true);
+      expect(deleteZap).toHaveBeenCalledOnceWith(target.id);
+      expect(cardNames(el)).toEqual(['Keep me']);
+      expect(window.confirm).not.toHaveBeenCalled();
+    });
+
+    it('keeps the card when DELETE fails', () => {
+      deleteZap.and.returnValue(throwError(() => new Error('boom')));
+      const el = deleteFromList(true);
+      expect(deleteZap).toHaveBeenCalledOnceWith(target.id);
+      expect(cardNames(el)).toEqual(['Keep me', 'Thank PRs']);
     });
   });
 });

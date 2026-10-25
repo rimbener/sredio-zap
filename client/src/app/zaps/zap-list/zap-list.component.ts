@@ -5,8 +5,9 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import type { AppDto, ZapDto } from '@zaps/shared';
-import { finalize, forkJoin } from 'rxjs';
+import { filter, finalize, forkJoin, switchMap } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
 import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
@@ -84,7 +85,24 @@ export class ZapListComponent implements OnInit {
   onEdit(_zap: ZapDto): void {}
 
   /** Card ⋮ → Delete: confirm, then `DELETE /api/zaps/:id` (S9). */
-  onDelete(_zap: ZapDto): void {}
+  onDelete(zap: ZapDto): void {
+    ConfirmDialogComponent.open(this.dialog, {
+      title: 'Delete Zap',
+      message: `Delete ${zap.name}? Its GitHub webhook will be removed.`,
+      confirmLabel: 'Delete',
+    })
+      .pipe(
+        filter((confirmed) => confirmed),
+        switchMap(() => this.zapsService.delete(zap.id)),
+      )
+      .subscribe({
+        next: () => {
+          this.zaps = this.zaps.filter((z) => z.id !== zap.id);
+        },
+        // The card stays; the interceptor already shows the snackbar.
+        error: () => undefined,
+      });
+  }
 
   trackById(_index: number, zap: ZapDto): string {
     return zap.id;
