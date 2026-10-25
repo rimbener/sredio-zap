@@ -20,6 +20,7 @@ Node 18.20.8 (`nvm use`); Angular 16 doesn't support newer Node. npm workspaces:
 
 ```sh
 docker compose up -d        # MongoDB 7 on localhost:27017
+npm run dev                 # builds shared, then runs the 4 below in one terminal (concurrently)
 npm run dev:shared          # tsc --watch on /shared
 npm run dev:server          # builds shared, then tsx watch (API on :3000)
 npm run dev:client          # builds shared, then ng serve (:4200)
