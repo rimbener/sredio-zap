@@ -1,27 +1,25 @@
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { AppComponent } from './app.component';
+import { appConfig } from './app.config';
+import { NotificationService } from './core/notification.service';
 
 describe('AppComponent', () => {
-  beforeEach(() => TestBed.configureTestingModule({
-    imports: [AppComponent]
-  }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: appConfig.providers,
+    }),
+  );
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it(`should have the 'client' title`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('client');
-  });
-
-  it('should render title', () => {
+  it('renders a router outlet', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.content span')?.textContent).toContain('client app is running!');
+    expect((fixture.nativeElement as HTMLElement).querySelector('router-outlet')).not.toBeNull();
+  });
+
+  it('provides the snackbar and dialog app-wide', () => {
+    expect(TestBed.inject(NotificationService)).toBeTruthy();
+    expect(TestBed.inject(MatDialog)).toBeTruthy();
   });
 });

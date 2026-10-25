@@ -1,0 +1,17 @@
+<mat-toolbar color="primary">
+  <a class="brand" routerLink="/zaps">⚡ Zaps</a>
+  <span class="spacer"></span>
+  <ng-container *ngIf="user$ | async as user">
+    <button mat-icon-button class="avatar-button" [matMenuTriggerFor]="userMenu" [attr.aria-label]="'Account menu for ' + user.login">
+      <img class="avatar" [src]="user.avatarUrl" alt="" />
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <div mat-menu-item disabled class="login">{{ user.login }}</div>
+      <button mat-menu-item type="button" (click)="onSignOut()">Sign out</button>
+    </mat-menu>
+  </ng-container>
+</mat-toolbar>
+
+<main>
+  <router-outlet></router-outlet>
+</main>

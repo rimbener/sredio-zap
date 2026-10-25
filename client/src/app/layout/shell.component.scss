@@ -1,0 +1,20 @@
+.brand {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: block;
+}
+
+main {
+  padding: 24px 16px;
+}
