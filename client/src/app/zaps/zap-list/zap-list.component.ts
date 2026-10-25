@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import type { AppDto, ZapDto } from '@zaps/shared';
 import { filter, finalize, forkJoin, switchMap } from 'rxjs';
+import { ApiError } from '../../core/api-error';
 import { AppsService } from '../../core/apps.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
@@ -74,7 +75,7 @@ export class ZapListComponent implements OnInit {
           this.zaps = this.zaps.map((z) => (z.id === updated.id ? updated : z));
         },
         // The interceptor shows the snackbar; the card reverts once `toggling` turns off.
-        error: () => undefined,
+        error: (err: unknown) => this.reloadIfGone(err),
       });
   }
 
@@ -104,8 +105,16 @@ export class ZapListComponent implements OnInit {
           this.zaps = this.zaps.filter((z) => z.id !== zap.id);
         },
         // The card stays; the interceptor already shows the snackbar.
-        error: () => undefined,
+        error: (err: unknown) => this.reloadIfGone(err),
       });
+  }
+
+  /**
+   * A list action hit `404 NOT_FOUND`: the interceptor already showed "This Zap no longer
+   * exists", so reload the list to drop the stale card (Screens.md → Error handling).
+   */
+  private reloadIfGone(err: unknown): void {
+    if (err instanceof ApiError && err.code === 'NOT_FOUND') this.load();
   }
 
   trackById(_index: number, zap: ZapDto): string {

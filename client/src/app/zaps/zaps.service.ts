@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { CreateZapInput, PatchZapInput, ZapDto } from '@zaps/shared';
 import { Observable } from 'rxjs';
@@ -25,9 +25,12 @@ export class ZapsService {
     return this.http.delete<void>(`${this.url}/${id}`);
   }
 
-  /** `GET /api/zaps/:id`: one of the user's Zaps. */
-  get(id: string): Observable<ZapDto> {
-    return this.http.get<ZapDto>(`${this.url}/${id}`);
+  /**
+   * `GET /api/zaps/:id`: one of the user's Zaps. `context` lets the caller opt out of
+   * interceptor snackbars (`HANDLED_ERROR_CODES`), e.g. the builder's "Zap not found" state.
+   */
+  get(id: string, context?: HttpContext): Observable<ZapDto> {
+    return this.http.get<ZapDto>(`${this.url}/${id}`, { context });
   }
 
   /** `PATCH /api/zaps/:id`: sends only the changed top-level fields; returns the saved Zap. */

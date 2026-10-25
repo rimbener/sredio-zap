@@ -219,7 +219,7 @@ describe('ZapBuilderComponent (edit mode)', () => {
 
   it('shows a spinner until the Zap, apps and repos load, then the saved values, pristine', () => {
     const { el, component, load } = render();
-    expect(zaps.get).toHaveBeenCalledWith(SAVED.id);
+    expect(zaps.get).toHaveBeenCalledWith(SAVED.id, jasmine.anything());
     expect(el.querySelector('.loading mat-spinner')).not.toBeNull();
     expect(component.form).toBeNull();
 
