@@ -9,6 +9,7 @@ import { getTokenEncryptionKey } from '../../env.js';
 import { resetOctokitFactory, setOctokitFactory } from '../../github/octokit.js';
 import { UserModel } from '../../models/user.js';
 import { useTestDb } from '../../test/db.js';
+import { githubRequestError } from '../../test/github-errors.js';
 import { createTestUser } from '../../test/users.js';
 
 useTestDb();
@@ -102,6 +103,26 @@ describe('GET /api/github/repos', () => {
     const res = await request(createApp({ authenticateAs: () => user })).get('/api/github/repos');
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, []);
+  });
+
+  it('GitHub errors: 401 → GITHUB_AUTH_REQUIRED; 403, 404, rate limit, 500 → 502 GITHUB_ERROR', async () => {
+    const user = await userWithToken('gho_t');
+    const cases: [Error, number, string][] = [
+      [githubRequestError(401), 401, 'GITHUB_AUTH_REQUIRED'],
+      [githubRequestError(403), 502, 'GITHUB_ERROR'],
+      [githubRequestError(403, { 'retry-after': '60' }), 502, 'GITHUB_ERROR'],
+      [githubRequestError(404), 502, 'GITHUB_ERROR'],
+      [githubRequestError(500), 502, 'GITHUB_ERROR'],
+    ];
+    for (const [err, status, code] of cases) {
+      const listForAuthenticatedUser = async () => {
+        throw err;
+      };
+      setOctokitFactory(() => ({ rest: { repos: { listForAuthenticatedUser } } }) as unknown as Octokit);
+      const res = await request(createApp({ authenticateAs: () => user })).get('/api/github/repos');
+      assert.equal(res.status, status, `${err.message}`);
+      assert.equal(res.body.error.code, code, `${err.message}`);
+    }
   });
 
   it('signed out → 401 UNAUTHENTICATED', async () => {
