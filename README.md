@@ -15,8 +15,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 
 > **Status:** only the project boilerplate exists so far; the app itself isn't implemented yet (see [Tasks.md](docs/Tasks.md)). Until the relevant tasks land:
 > - `npm run seed -w server` doesn't exist yet (task F4).
-> - `npm run smee` still reads a `SMEE_URL` shell variable instead of `WEBHOOK_PUBLIC_URL` from `.env` (task F3). Until then, run it as `SMEE_URL=<your smee URL> npm run smee`.
-> - `npm run dev:server` starts an empty server (task F3).
+> - `npm run dev:server` starts the server skeleton (env validation, middleware, session store); its routes arrive with the slices (sign-in: S1, apps: F4, Zaps: S3 onward, webhooks: S10).
 
 ## Prerequisites
 

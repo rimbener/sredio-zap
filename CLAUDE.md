@@ -23,7 +23,7 @@ docker compose up -d        # MongoDB 7 on localhost:27017
 npm run dev:shared          # tsc --watch on /shared
 npm run dev:server          # builds shared, then tsx watch (API on :3000)
 npm run dev:client          # builds shared, then ng serve (:4200)
-npm run smee                # forwards webhooks to :3000/webhooks/github (currently needs SMEE_URL=<url>; F3 switches it to WEBHOOK_PUBLIC_URL from .env)
+npm run smee                # forwards WEBHOOK_PUBLIC_URL (from server/.env) to :3000/webhooks/github
 npm run build               # shared → server → client
 
 npm test                    # all workspaces (client in headless Chrome)
@@ -32,7 +32,7 @@ cd server && node --import tsx --test src/path/to/file.test.ts      # single ser
 cd client && npx ng test --watch=false --include src/app/path/x.spec.ts   # single client spec
 ```
 
-Server config is `server/.env` (copy from `.env.example`); the server validates every var with zod at startup and refuses to start otherwise. `npm run seed -w server` (app catalog) arrives with task F4.
+Server config is `server/.env` (copy from `.env.example`); the server validates every var with zod at startup (`server/src/env.ts`: `loadEnv`/`getEnv`) and refuses to start otherwise. `npm run seed -w server` (app catalog) arrives with task F4.
 
 ## Architecture
 
@@ -48,9 +48,12 @@ Server config is `server/.env` (copy from `.env.example`); the server validates 
 
 - **Version pins are deliberate** (Node 18 / TS 5.1): TypeScript ~5.1.6, zod 3 (not 4), connect-mongo 5, @octokit/rest 21, smee-client 3, mongodb-memory-server 10. Don't upgrade.
 - Keep dependencies minimal: no library or middleware not listed in `docs/Tech-Stack.md` (no logger, compression, rate limiting, HTTP mocking lib).
-- Server tests: `node:test` + supertest + `mongodb-memory-server` (no Docker; first run downloads a ~100 MB binary). Signed-in requests use `createApp({ authenticateAs })` instead of real OAuth; GitHub is faked via the Octokit factory.
+- Server tests: `node:test` + supertest + `mongodb-memory-server` (no Docker; first run downloads a ~100 MB binary). Call `useTestDb()` from `src/test/db.ts` at the top of a test file (sets a test env, starts Mongo, clears collections before each test); `createTestUser()` is in `src/test/users.ts`. Signed-in requests use `createApp({ authenticateAs: () => user })` instead of real OAuth; GitHub is faked via the Octokit factory. Test files and `src/test/` are excluded from the build.
 
 ## Rules
 
 - Use always conventional commits
 - Check if it's needed to update this file and the README.md file every time a change is requested
+- Never commit or push directly to `main` unless the user explicitly asks. Otherwise work on a feature branch (e.g. `feat/f1-shared-contracts`) and open a PR against `main`; never merge PRs, the user reviews and merges them
+- Make no commits, pushes or PRs unless the user asks for them
+- Keep PR descriptions short: what the PR implements, how it was verified, and the decisions taken where the spec is silent. Don't list every changed file
