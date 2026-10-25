@@ -52,6 +52,22 @@ describe('ZapCardComponent', () => {
     expect(events).toEqual([{ zap, enabled: true }]);
   });
 
+  it('disables the toggle while toggling and snaps back to zap.enabled when it ends', () => {
+    const el = render(makeZap({ enabled: false }));
+    const button = () => el.querySelector<HTMLButtonElement>('.toggle button')!;
+
+    button().click();
+    fixture.componentRef.setInput('toggling', true);
+    fixture.detectChanges();
+    expect(button().disabled).toBeTrue();
+    expect(button().getAttribute('aria-checked')).toBe('true');
+
+    fixture.componentRef.setInput('toggling', false);
+    fixture.detectChanges();
+    expect(button().disabled).toBeFalse();
+    expect(button().getAttribute('aria-checked')).toBe('false');
+  });
+
   it('emits edit and delete from the ⋮ menu', () => {
     const zap = makeZap();
     const el = render(zap);

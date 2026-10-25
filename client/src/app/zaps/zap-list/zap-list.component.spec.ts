@@ -6,11 +6,14 @@ import { Observable, Subject, of, throwError } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
 import { AppPickerDialogComponent } from '../app-picker/app-picker-dialog.component';
 import { GITHUB_APP, makeZap } from '../testing/zap-fixtures';
+import { ApiError } from '../../core/api-error';
+import { ZapToggleService } from '../zap-toggle.service';
 import { ZapsService } from '../zaps.service';
 import { ZapListComponent } from './zap-list.component';
 
 describe('ZapListComponent', () => {
   let list: jasmine.Spy<() => Observable<ZapDto[]>>;
+  let setEnabled: jasmine.Spy<(zap: ZapDto, enabled: boolean) => Observable<ZapDto>>;
   let fixture: ComponentFixture<ZapListComponent>;
 
   function render(): HTMLElement {
@@ -21,6 +24,7 @@ describe('ZapListComponent', () => {
 
   beforeEach(() => {
     list = jasmine.createSpy('list');
+    setEnabled = jasmine.createSpy('setEnabled');
     TestBed.configureTestingModule({
       imports: [ZapListComponent],
       providers: [
@@ -28,6 +32,7 @@ describe('ZapListComponent', () => {
         { provide: ZapsService, useValue: { list } },
         { provide: AppsService, useValue: { getApps: () => of([GITHUB_APP]) } },
         { provide: MatDialog, useValue: jasmine.createSpyObj<MatDialog>('MatDialog', ['open']) },
+        { provide: ZapToggleService, useValue: { setEnabled } },
       ],
     });
   });
@@ -100,5 +105,66 @@ describe('ZapListComponent', () => {
 
     expect(dialog.open).toHaveBeenCalledTimes(2);
     expect(dialog.open.calls.allArgs().every(([component]) => component === AppPickerDialogComponent)).toBeTrue();
+  });
+
+  describe('toggle', () => {
+    function toggleButton(el: HTMLElement): HTMLButtonElement {
+      return el.querySelector<HTMLButtonElement>('app-zap-card .toggle button')!;
+    }
+
+    it('is disabled while the request runs and uses the returned enabled on success', () => {
+      const zap = makeZap({ enabled: false });
+      list.and.returnValue(of([zap]));
+      const response = new Subject<ZapDto>();
+      setEnabled.and.returnValue(response);
+      const el = render();
+
+      toggleButton(el).click();
+      fixture.detectChanges();
+
+      expect(setEnabled).toHaveBeenCalledOnceWith(zap, true);
+      expect(toggleButton(el).disabled).toBeTrue();
+
+      response.next({ ...zap, enabled: true, updatedAt: '2026-10-26T10:00:00.000Z' });
+      response.complete();
+      fixture.detectChanges();
+
+      expect(toggleButton(el).disabled).toBeFalse();
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('true');
+      expect(fixture.componentInstance.zaps[0].enabled).toBeTrue();
+      expect(el.querySelector('app-zap-card .toggle')?.textContent).toContain('On');
+    });
+
+    it('turns an enabled Zap off', () => {
+      const zap = makeZap({ enabled: true });
+      list.and.returnValue(of([zap]));
+      setEnabled.and.returnValue(of({ ...zap, enabled: false }));
+      const el = render();
+
+      toggleButton(el).click();
+      fixture.detectChanges();
+
+      expect(setEnabled).toHaveBeenCalledOnceWith(zap, false);
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('reverts on error and re-enables the toggle', () => {
+      const zap = makeZap({ enabled: false });
+      list.and.returnValue(of([zap]));
+      const response = new Subject<ZapDto>();
+      setEnabled.and.returnValue(response);
+      const el = render();
+
+      toggleButton(el).click();
+      fixture.detectChanges();
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('true');
+
+      response.error(new ApiError(502, 'GITHUB_ERROR', 'boom'));
+      fixture.detectChanges();
+
+      expect(toggleButton(el).disabled).toBeFalse();
+      expect(toggleButton(el).getAttribute('aria-checked')).toBe('false');
+      expect(fixture.componentInstance.zaps[0].enabled).toBeFalse();
+    });
   });
 });

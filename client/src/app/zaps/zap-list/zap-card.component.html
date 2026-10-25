@@ -28,6 +28,7 @@
     <mat-slide-toggle
       class="toggle"
       [checked]="zap.enabled"
+      [disabled]="toggling"
       [attr.aria-label]="(zap.enabled ? 'Turn off ' : 'Turn on ') + zap.name"
       (click)="$event.stopPropagation()"
       (change)="onToggle($event)"

@@ -28,6 +28,7 @@
     *ngFor="let zap of zaps; trackBy: trackById"
     [zap]="zap"
     [apps]="apps"
+    [toggling]="isToggling(zap)"
     (toggle)="onToggle($event)"
     (edit)="onEdit($event)"
     (delete)="onDelete($event)"
