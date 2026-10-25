@@ -4,8 +4,10 @@ import {
   buildTokenValues,
   renderTemplate,
   SAMPLE_TOKEN_VALUES,
+  truncateComment,
   type PullRequestPayload,
 } from './render.js';
+import { COMMENT_BODY_MAX_LENGTH } from './schemas/step-config.js';
 
 const payload: PullRequestPayload = {
   pull_request: {
@@ -62,4 +64,45 @@ test('renders the builder preview with sample values', () => {
     renderTemplate('Thanks @{{pr.author}} for "{{pr.title}}"! #{{pr.number}}', SAMPLE_TOKEN_VALUES),
     'Thanks @octocat for "Fix login redirect"! #42',
   );
+});
+
+const codePoints = (text: string) => Array.from(text).length;
+
+test('leaves output of exactly 65,536 code points unchanged', () => {
+  const ascii = 'a'.repeat(COMMENT_BODY_MAX_LENGTH);
+  assert.equal(renderTemplate(ascii, {}), ascii);
+  // 65,536 emoji are 131,072 UTF-16 units but still 65,536 code points.
+  const emoji = '😀'.repeat(COMMENT_BODY_MAX_LENGTH);
+  assert.equal(truncateComment(emoji), emoji);
+});
+
+test('cuts 65,537 code points to 65,536 ending in …', () => {
+  const result = truncateComment('a'.repeat(COMMENT_BODY_MAX_LENGTH + 1));
+  assert.equal(codePoints(result), COMMENT_BODY_MAX_LENGTH);
+  assert.equal(result, 'a'.repeat(COMMENT_BODY_MAX_LENGTH - 1) + '…');
+});
+
+test('does not split an emoji at the cut', () => {
+  // The emoji sits at code point 65,535 (the last one kept before the …), and its
+  // surrogate pair straddles UTF-16 unit 65,535, where a `length`-based cut would land.
+  const text = 'a'.repeat(COMMENT_BODY_MAX_LENGTH - 2) + '😀' + 'b'.repeat(10);
+  const result = truncateComment(text);
+  assert.equal(codePoints(result), COMMENT_BODY_MAX_LENGTH);
+  assert.ok(result.endsWith('😀…'));
+  // With the `u` flag this matches only lone (split) surrogates.
+  assert.doesNotMatch(result, /[\uD800-\uDFFF]/u);
+
+  const allEmoji = truncateComment('😀'.repeat(COMMENT_BODY_MAX_LENGTH + 1));
+  assert.equal(allEmoji, '😀'.repeat(COMMENT_BODY_MAX_LENGTH - 1) + '…');
+});
+
+test('truncates a short template rendered with a long {{pr.body}}', () => {
+  const values = buildTokenValues({
+    ...payload,
+    pull_request: { ...payload.pull_request, body: 'x'.repeat(70_000) },
+  });
+  const result = renderTemplate('Thanks @{{pr.author}}!\n\n{{pr.body}}', values);
+  assert.equal(codePoints(result), COMMENT_BODY_MAX_LENGTH);
+  assert.ok(result.startsWith('Thanks @alice!\n\nxxx'));
+  assert.ok(result.endsWith('x…'));
 });

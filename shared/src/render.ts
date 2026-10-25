@@ -5,19 +5,35 @@
  * The same function renders the real comment on the server and the builder preview.
  */
 
+import { COMMENT_BODY_MAX_LENGTH } from './schemas/step-config.js';
+
 /** Token values keyed by token name without braces, e.g. `{ 'pr.title': 'Fix login redirect' }`. */
 export type TokenValues = Record<string, string>;
 
 const PLACEHOLDER = /\{\{([^{}]+)\}\}/g;
 
 /**
- * Replaces every `{{token}}` in `template` with `values[token]`.
+ * Replaces every `{{token}}` in `template` with `values[token]`, then truncates the result to
+ * GitHub's comment limit (see `truncateComment`).
  * Placeholders without a value are left as they are (unknown tokens are rejected when the Zap is saved).
  */
 export function renderTemplate(template: string, values: TokenValues): string {
-  return template.replace(PLACEHOLDER, (match, token: string) =>
+  const rendered = template.replace(PLACEHOLDER, (match, token: string) =>
     Object.hasOwn(values, token) ? values[token] : match,
   );
+  return truncateComment(rendered);
+}
+
+/**
+ * Cuts `text` to `COMMENT_BODY_MAX_LENGTH` code points, replacing the last kept one with `…` when cut.
+ * Counts code points (`Array.from`), not UTF-16 units, so an astral character is never split in half.
+ */
+export function truncateComment(text: string): string {
+  // Fewer UTF-16 units than the limit means fewer code points too: skip the array.
+  if (text.length <= COMMENT_BODY_MAX_LENGTH) return text;
+  const codePoints = Array.from(text);
+  if (codePoints.length <= COMMENT_BODY_MAX_LENGTH) return text;
+  return codePoints.slice(0, COMMENT_BODY_MAX_LENGTH - 1).join('') + '…';
 }
 
 /** Sample values for the builder preview (Screens.md → Action card). */
