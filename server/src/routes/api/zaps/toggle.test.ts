@@ -6,20 +6,25 @@ import request from 'supertest';
 import { createApp } from '../../../app.js';
 import { decrypt, encrypt } from '../../../crypto/token.js';
 import { getTokenEncryptionKey } from '../../../env.js';
+import { AppModel } from '../../../models/app.js';
+import { seedApps } from '../../../scripts/seed-apps.js';
 import { resetOctokitFactory, setOctokitFactory } from '../../../github/octokit.js';
 import { UserModel, type UserDocument } from '../../../models/user.js';
 import { ZapModel } from '../../../models/zap.js';
 import { useTestDb } from '../../../test/db.js';
 import { TEST_ENV } from '../../../test/env.js';
 import { createTestUser } from '../../../test/users.js';
-import { createTestZap } from '../../../test/zaps.js';
+import { createTestZap, testWebhook } from '../../../test/zaps.js';
 
 useTestDb();
 
 type Params = Record<string, unknown>;
 
-/** A fake Octokit recording `createWebhook` / `deleteWebhook` calls and the token used. */
-function fakeOctokit(hookId = 4242) {
+/**
+ * A fake Octokit recording `createWebhook` / `deleteWebhook` calls and the token used.
+ * `deleteStatus` makes `deleteWebhook` fail with that GitHub status.
+ */
+function fakeOctokit(hookId = 4242, deleteStatus?: number) {
   const created: Params[] = [];
   const deleted: Params[] = [];
   const tokens: string[] = [];
@@ -33,6 +38,7 @@ function fakeOctokit(hookId = 4242) {
         },
         deleteWebhook: async (params: Params) => {
           deleted.push(params);
+          if (deleteStatus) throw Object.assign(new Error(`GitHub ${deleteStatus}`), { status: deleteStatus });
           return { status: 204, data: undefined };
         },
       },
@@ -50,6 +56,11 @@ async function userWithToken(token: string): Promise<UserDocument> {
   user.accessToken = encrypt(token, getTokenEncryptionKey()) as never;
   await user.save();
   return UserModel.findById(user._id).orFail();
+}
+
+function clearsSessionCookie(res: request.Response): boolean {
+  const cookies = (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+  return cookies.some((c) => c.startsWith('zaps.sid='));
 }
 
 function post(app: ReturnType<typeof createApp>, path: string) {
@@ -123,6 +134,77 @@ describe('POST /api/zaps/:id/enable and /disable', () => {
     const stored = await ZapModel.findById(id).orFail();
     assert.equal(stored.enabled, false);
     assert.equal(stored.webhook, null);
+  });
+
+  for (const status of [404, 500, 401]) {
+    it(`disable when GitHub answers ${status} → 200, webhook cleared, session intact`, async () => {
+      const gh = fakeOctokit(4242, status);
+      const zap = await createTestZap(user._id, { enabled: true, webhook: testWebhook(55) });
+
+      const res = await post(app, `/api/zaps/${zap._id.toString()}/disable`);
+
+      assert.equal(res.status, 200);
+      assert.equal((res.body as ZapDto).enabled, false);
+      assert.equal(gh.deleted.length, 1);
+      assert.equal(clearsSessionCookie(res), false);
+      const stored = await ZapModel.findById(zap._id).orFail();
+      assert.equal(stored.enabled, false);
+      assert.equal(stored.webhook, null);
+    });
+  }
+
+  it('enable on an enabled Zap is a no-op 200: one createWebhook call, same hook', async () => {
+    const gh = fakeOctokit(4242);
+    const zap = await createTestZap(user._id);
+    const id = zap._id.toString();
+    await post(app, `/api/zaps/${id}/enable`).expect(200);
+    const before = await ZapModel.findById(id).orFail();
+
+    const res = await post(app, `/api/zaps/${id}/enable`);
+
+    assert.equal(res.status, 200);
+    assert.equal((res.body as ZapDto).enabled, true);
+    assert.equal(gh.created.length, 1);
+    const after = await ZapModel.findById(id).orFail();
+    assert.equal(after.webhook?.hookId, 4242);
+    assert.deepEqual(after.webhook?.secret, before.webhook?.secret);
+  });
+
+  it('disable on a disabled Zap is a no-op 200 with no GitHub call', async () => {
+    const gh = fakeOctokit();
+    const zap = await createTestZap(user._id);
+
+    const res = await post(app, `/api/zaps/${zap._id.toString()}/disable`);
+
+    assert.equal(res.status, 200);
+    assert.equal((res.body as ZapDto).enabled, false);
+    assert.equal(gh.tokens.length, 0);
+  });
+
+  it('enable when the app is coming_soon → 422 APP_UNAVAILABLE, stays disabled, no GitHub call', async () => {
+    const gh = fakeOctokit();
+    await seedApps();
+    const gitlab = await AppModel.findOne({ key: 'gitlab' }).orFail();
+    const zap = await createTestZap(user._id, { appId: gitlab._id });
+
+    const res = await post(app, `/api/zaps/${zap._id.toString()}/enable`);
+
+    assert.equal(res.status, 422);
+    assert.equal(res.body.error.code, 'APP_UNAVAILABLE');
+    assert.equal(gh.tokens.length, 0);
+    const stored = await ZapModel.findById(zap._id).orFail();
+    assert.equal(stored.enabled, false);
+    assert.equal(stored.webhook, null);
+  });
+
+  it('enable when the app is available (seeded github) → 200', async () => {
+    const gh = fakeOctokit();
+    await seedApps();
+    const github = await AppModel.findOne({ key: 'github' }).orFail();
+    const zap = await createTestZap(user._id, { appId: github._id });
+
+    await post(app, `/api/zaps/${zap._id.toString()}/enable`).expect(200);
+    assert.equal(gh.created.length, 1);
   });
 
   it("another user's Zap → 404 on enable and disable, no GitHub call", async () => {

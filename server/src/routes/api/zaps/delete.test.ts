@@ -89,6 +89,31 @@ describe('DELETE /api/zaps/:id', () => {
     assert.equal(await ZapRunModel.countDocuments({ zapId: otherZap._id }), 2);
   });
 
+  for (const status of [404, 500, 401]) {
+    it(`GitHub ${status} on webhook removal → still 204, Zap and runs gone, session intact`, async () => {
+      setOctokitFactory((token) => ({
+        rest: {
+          repos: {
+            deleteWebhook: async (params: Record<string, unknown>) => {
+              calls.push({ token, params });
+              throw Object.assign(new Error(`GitHub ${status}`), { status });
+            },
+          },
+        },
+      }) as unknown as Octokit);
+      const zap = await createTestZap(user._id, { enabled: true, webhook: testWebhook(99) });
+      await insertRuns(zap._id, user._id, 2);
+
+      const res = await request(app).delete(`/api/zaps/${zap._id.toString()}`);
+
+      assert.equal(res.status, 204);
+      assert.equal(calls.length, 1);
+      assert.equal(res.headers['set-cookie'], undefined);
+      assert.equal(await ZapModel.countDocuments({ _id: zap._id }), 0);
+      assert.equal(await ZapRunModel.countDocuments({ zapId: zap._id }), 0);
+    });
+  }
+
   it('disabled Zap → no GitHub call → 204', async () => {
     const zap = await createTestZap(user._id);
     await insertRuns(zap._id, user._id, 1);

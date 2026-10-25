@@ -9,7 +9,7 @@ import { findOwnedZap } from '../../../zaps/index.js';
 /**
  * `DELETE /api/zaps/:id`: removes the Zap's webhook on GitHub if it has one, then deletes the
  * Zap and its `zapRuns` → `204` (API.md → Zaps; Data-model.md → Lifecycle rules).
- * Happy path only: best-effort removal when GitHub fails is E5.
+ * The removal is best-effort (`removeWebhook` never throws), so the Zap is deleted even if GitHub fails.
  */
 export const deleteZapRouter = Router();
 
