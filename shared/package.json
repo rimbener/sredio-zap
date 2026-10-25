@@ -1,0 +1,26 @@
+{
+  "name": "@zaps/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "find src -name \"*.test.ts\" -exec node --import tsx --test {} +"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "~5.1.6"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}
