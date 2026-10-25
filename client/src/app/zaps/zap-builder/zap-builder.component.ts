@@ -1,4 +1,5 @@
 import { NgIf } from '@angular/common';
+import { HttpContext } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -16,6 +17,7 @@ import { Observable, catchError, forkJoin, of } from 'rxjs';
 import { ApiError } from '../../core/api-error';
 import { AppsService } from '../../core/apps.service';
 import { GithubService } from '../../core/github.service';
+import { HANDLED_ERROR_CODES } from '../../core/http-error.interceptor';
 import { NotificationService } from '../../core/notification.service';
 import { ZapsService } from '../zaps.service';
 import { ActionStepComponent } from './action-step.component';
@@ -57,6 +59,9 @@ export class ZapBuilderComponent implements OnInit {
   private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
 
+  /** Snackbar for `/zaps/new` with a missing, unknown or coming-soon `appId` (E9). */
+  static readonly APP_UNAVAILABLE_MESSAGE = "This app isn't available yet.";
+
   static readonly TOGGLE_TOOLTIP = 'Save your changes before turning this Zap on/off';
   readonly toggleTooltip = ZapBuilderComponent.TOGGLE_TOOLTIP;
 
@@ -72,6 +77,8 @@ export class ZapBuilderComponent implements OnInit {
   reposLoaded = false;
   loading = false;
   saving = false;
+  /** Edit mode: the Zap doesn't exist or isn't the user's (`404 NOT_FOUND`). */
+  notFound = false;
 
   ngOnInit(): void {
     if (this.zapId !== null) this.loadEdit(this.zapId);
@@ -89,17 +96,27 @@ export class ZapBuilderComponent implements OnInit {
     else this.create(app, form);
   }
 
-  /** Create mode: the app from `?appId=` and the repo list load independently. */
+  /**
+   * Create mode: the app from `?appId=` and the repo list load independently.
+   * A missing or unknown `appId`, or a coming-soon app, goes back to `/zaps` with a snackbar
+   * (Screens.md → Routes).
+   */
   private loadCreate(): void {
     const appId = this.route.snapshot.queryParamMap.get('appId');
+    if (!appId) {
+      this.leaveUnavailableApp();
+      return;
+    }
     this.apps
       .getApps()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (apps) => {
-          // An unknown or coming-soon `appId` is E9; the builder just stays empty.
           const app = apps.find((a) => a.id === appId && a.status === 'available');
-          if (!app) return;
+          if (!app) {
+            this.leaveUnavailableApp();
+            return;
+          }
           this.app = app;
           this.form = createZapForm(app);
         },
@@ -113,12 +130,13 @@ export class ZapBuilderComponent implements OnInit {
 
   /**
    * Edit mode: a spinner while the Zap, the app catalog and the repo list load
-   * (Screens.md → States). If the Zap or the catalog fails, the interceptor shows its
-   * snackbar and the page stays empty; the "Zap not found" state is E9.
+   * (Screens.md → States). A `404` shows the "Zap not found" state instead of a snackbar;
+   * any other failure leaves the snackbar to the interceptor and the page stays empty.
    */
   private loadEdit(id: string): void {
     this.loading = true;
-    forkJoin({ zap: this.zaps.get(id), apps: this.apps.getApps(), repos: this.loadRepos() })
+    const context = new HttpContext().set(HANDLED_ERROR_CODES, ['NOT_FOUND']);
+    forkJoin({ zap: this.zaps.get(id, context), apps: this.apps.getApps(), repos: this.loadRepos() })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ zap, apps, repos }) => {
@@ -130,10 +148,16 @@ export class ZapBuilderComponent implements OnInit {
           this.app = app;
           this.form = editZapForm(app, zap);
         },
-        error: () => {
+        error: (err: unknown) => {
           this.loading = false;
+          this.notFound = err instanceof ApiError && err.code === 'NOT_FOUND';
         },
       });
+  }
+
+  private leaveUnavailableApp(): void {
+    void this.router.navigate(['/zaps'], { replaceUrl: true });
+    this.notifications.show(ZapBuilderComponent.APP_UNAVAILABLE_MESSAGE);
   }
 
   /**

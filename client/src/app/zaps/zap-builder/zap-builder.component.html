@@ -30,6 +30,11 @@
     <mat-spinner diameter="48"></mat-spinner>
   </div>
 
+  <div *ngIf="notFound" class="not-found">
+    <h2>Zap not found</h2>
+    <a mat-stroked-button routerLink="/zaps">Back to your Zaps</a>
+  </div>
+
   <mat-accordion *ngIf="form && app" class="steps">
     <app-trigger-step
       [app]="app"
