@@ -48,6 +48,10 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
         // `authRedirect` lets the unsaved-changes guard (E10) pass without asking.
         auth.setSignedOut();
         void router.navigate(['/login'], { state: { authRedirect: true } });
+      } else if (apiError.code === 'GITHUB_AUTH_REQUIRED') {
+        // Revoked GitHub token: the server has already ended the session (E2), so login is reachable.
+        auth.setSignedOut();
+        void router.navigate(['/login'], { queryParams: { error: 'github_auth' }, state: { authRedirect: true } });
       } else if (!request.context.get(HANDLED_ERROR_CODES).includes(apiError.code)) {
         const message = errorMessageFor(apiError);
         if (message) {

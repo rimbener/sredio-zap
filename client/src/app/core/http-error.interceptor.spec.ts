@@ -111,6 +111,30 @@ describe('httpErrorInterceptor', () => {
     expect(router.navigate).toHaveBeenCalledOnceWith(['/login'], { state: { authRedirect: true } });
   });
 
+  it('on a 401 GITHUB_AUTH_REQUIRED sets auth to null and navigates to /login?error=github_auth with authRedirect', () => {
+    let state: AuthState = undefined;
+    auth.user$.subscribe((s) => (state = s));
+
+    const error = failGet(envelope('GITHUB_AUTH_REQUIRED'), 401);
+
+    expect(error?.code).toBe('GITHUB_AUTH_REQUIRED');
+    expect(state).toBeNull();
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/login'], {
+      queryParams: { error: 'github_auth' },
+      state: { authRedirect: true },
+    });
+    expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  it('redirects on GITHUB_AUTH_REQUIRED even when the call site lists it in HANDLED_ERROR_CODES', () => {
+    const context = new HttpContext().set(HANDLED_ERROR_CODES, ['GITHUB_AUTH_REQUIRED']);
+    failGet(envelope('GITHUB_AUTH_REQUIRED'), 401, context);
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/login'], {
+      queryParams: { error: 'github_auth' },
+      state: { authRedirect: true },
+    });
+  });
+
   it('does not redirect for other errors', () => {
     failGet(envelope('GITHUB_ERROR'), 502);
     expect(router.navigate).not.toHaveBeenCalled();

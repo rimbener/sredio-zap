@@ -9,6 +9,7 @@ import { BrowserLocationService } from '../core/browser-location.service';
 /** Inline message per `?error=` value (Screens.md → Login); unknown values show nothing. */
 export const LOGIN_ERROR_MESSAGES: ReadonlyMap<string, string> = new Map([
   ['oauth', 'Sign-in failed. Please try again.'],
+  ['github_auth', 'Your GitHub session expired, please sign in again'],
 ]);
 
 /** Login screen (Screens.md → Login). */

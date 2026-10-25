@@ -49,6 +49,13 @@ describe('LoginComponent', () => {
     expect(el.querySelector('.login-error')?.textContent).toContain('Sign-in failed. Please try again.');
   });
 
+  it('shows "Your GitHub session expired, please sign in again" with ?error=github_auth', () => {
+    const el = setup({ error: 'github_auth' });
+    expect(el.querySelector('.login-error')?.textContent).toContain(
+      'Your GitHub session expired, please sign in again',
+    );
+  });
+
   it('shows no error message for an unknown ?error= value', () => {
     expect(setup({ error: 'constructor' }).querySelector('.login-error')).toBeNull();
   });
