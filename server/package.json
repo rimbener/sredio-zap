@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "test": "find src -name \"*.test.ts\" -exec node --import tsx --test {} +",
-    "smee": "smee --url \"${SMEE_URL:?Set SMEE_URL to your https://smee.io/<channel> URL (same as WEBHOOK_PUBLIC_URL)}\" --target http://localhost:3000/webhooks/github"
+    "smee": "tsx scripts/smee.ts"
   },
   "dependencies": {
     "@octokit/rest": "^21.1.1",
