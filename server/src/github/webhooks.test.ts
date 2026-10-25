@@ -89,4 +89,26 @@ describe('removeWebhook', () => {
       { method: 'repos.deleteWebhook', params: { owner: 'acme', repo: 'api', hook_id: 4242 } },
     ]);
   });
+
+  for (const status of [404, 401, 403, 500]) {
+    it(`swallows a GitHub ${status} (best-effort, never throws)`, async () => {
+      const octokit = {
+        rest: {
+          repos: {
+            deleteWebhook: async () => {
+              throw Object.assign(new Error(`GitHub ${status}`), { status });
+            },
+          },
+        },
+      } as unknown as Octokit;
+      await removeWebhook(octokit, { owner: 'acme', repo: 'api', hookId: 4242 });
+    });
+  }
+
+  it('swallows a network failure with no status', async () => {
+    const octokit = {
+      rest: { repos: { deleteWebhook: async () => Promise.reject(new TypeError('fetch failed')) } },
+    } as unknown as Octokit;
+    await removeWebhook(octokit, { owner: 'acme', repo: 'api', hookId: 4242 });
+  });
 });

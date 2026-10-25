@@ -64,10 +64,19 @@ export interface RemoveWebhookParams {
   hookId: number;
 }
 
-/** Deletes the Zap's webhook. Happy path only: best-effort and 404 rules are E5. */
+/**
+ * Deletes the Zap's webhook, best-effort (API.md → Disable / Delete): it never throws.
+ * A GitHub `404` means the hook is already gone. Any other failure, `401` included, is swallowed
+ * without ending the session, so local state wins and the caller always disables/deletes the Zap.
+ * A hook left behind triggers nothing (its deliveries match no Zap).
+ */
 export async function removeWebhook(
   octokit: Octokit,
   { owner, repo, hookId }: RemoveWebhookParams,
 ): Promise<void> {
-  await octokit.rest.repos.deleteWebhook({ owner, repo, hook_id: hookId });
+  try {
+    await octokit.rest.repos.deleteWebhook({ owner, repo, hook_id: hookId });
+  } catch {
+    // 404: already removed. Anything else: leftover hook, ignored by design.
+  }
 }

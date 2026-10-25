@@ -1,22 +1,36 @@
 import { Router } from 'express';
 import { encrypt } from '../../../crypto/token.js';
 import { getEnv, getTokenEncryptionKey } from '../../../env.js';
+import { AppError } from '../../../errors/app-error.js';
 import { octokitFor } from '../../../github/octokit.js';
 import { createWebhook, removeWebhook } from '../../../github/webhooks.js';
+import { AppModel } from '../../../models/app.js';
 import { findOwnedZap, toZapDto } from '../../../zaps/index.js';
 
 type RepoConfig = { owner: string; repo: string };
 
 /**
  * `POST /api/zaps/:id/enable` and `/disable` (API.md → Zaps → Enable, Disable).
- * Happy path only: GitHub error mapping (E3), the leftover-hook 409 (E4) and the
- * best-effort / no-op / `APP_UNAVAILABLE` rules (E5) come later.
+ * Enable/disable on a Zap already in that state is a no-op `200` with no GitHub call; enabling a
+ * Zap whose app is `coming_soon` is `422 APP_UNAVAILABLE`; disable removes the hook best-effort.
  */
 export const toggleZapRouter = Router();
 
 toggleZapRouter.post('/:id/enable', async (req, res) => {
   const user = req.user!;
   const zap = await findOwnedZap(user._id, req.params.id);
+  if (zap.enabled) {
+    res.json(toZapDto(zap));
+    return;
+  }
+
+  // `appId` is validated on create/update, so a missing app only happens if the catalog changed;
+  // only a stored `coming_soon` status blocks enabling.
+  const app = await AppModel.findById(zap.appId, { status: 1 }).lean();
+  if (app && app.status !== 'available') {
+    throw new AppError(422, 'APP_UNAVAILABLE', "This app isn't available yet");
+  }
+
   const key = getTokenEncryptionKey();
   const { owner, repo } = zap.trigger.config as RepoConfig;
 
@@ -35,8 +49,12 @@ toggleZapRouter.post('/:id/enable', async (req, res) => {
 toggleZapRouter.post('/:id/disable', async (req, res) => {
   const user = req.user!;
   const zap = await findOwnedZap(user._id, req.params.id);
+  if (!zap.enabled) {
+    res.json(toZapDto(zap));
+    return;
+  }
 
-  // A disabled Zap has no webhook, so there is nothing to remove on GitHub.
+  // Best-effort: `removeWebhook` never throws, so local state wins even if GitHub fails.
   if (zap.webhook) {
     const { owner, repo } = zap.trigger.config as RepoConfig;
     await removeWebhook(octokitFor(user.accessToken, getTokenEncryptionKey()), {
