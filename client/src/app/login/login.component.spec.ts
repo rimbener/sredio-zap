@@ -1,22 +1,30 @@
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { BrowserLocationService } from '../core/browser-location.service';
 import { LoginComponent } from './login.component';
 
 describe('LoginComponent', () => {
   let assign: jasmine.Spy<(url: string) => void>;
 
-  beforeEach(() => {
-    assign = jasmine.createSpy('assign');
+  function setup(queryParams: Record<string, string> = {}): HTMLElement {
     TestBed.configureTestingModule({
       imports: [LoginComponent],
-      providers: [{ provide: BrowserLocationService, useValue: { assign } }],
+      providers: [
+        { provide: BrowserLocationService, useValue: { assign } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
+      ],
     });
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  beforeEach(() => {
+    assign = jasmine.createSpy('assign');
   });
 
   it('shows the brand, tagline and a "Sign in with GitHub" button in a card', () => {
-    const fixture = TestBed.createComponent(LoginComponent);
-    fixture.detectChanges();
-    const el = fixture.nativeElement as HTMLElement;
+    const el = setup();
 
     expect(el.querySelector('mat-card')).not.toBeNull();
     expect(el.querySelector('.brand')?.textContent?.trim()).toBe('⚡ Zaps');
@@ -25,11 +33,23 @@ describe('LoginComponent', () => {
   });
 
   it('the button navigates the whole page to the server OAuth start', () => {
-    const fixture = TestBed.createComponent(LoginComponent);
-    fixture.detectChanges();
+    const el = setup();
 
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button.sign-in')!.click();
+    el.querySelector<HTMLButtonElement>('button.sign-in')!.click();
 
     expect(assign).toHaveBeenCalledOnceWith('http://localhost:3000/auth/github');
+  });
+
+  it('shows no error message without the query param', () => {
+    expect(setup().querySelector('.login-error')).toBeNull();
+  });
+
+  it('shows "Sign-in failed. Please try again." with ?error=oauth', () => {
+    const el = setup({ error: 'oauth' });
+    expect(el.querySelector('.login-error')?.textContent).toContain('Sign-in failed. Please try again.');
+  });
+
+  it('shows no error message for an unknown ?error= value', () => {
+    expect(setup({ error: 'constructor' }).querySelector('.login-error')).toBeNull();
   });
 });

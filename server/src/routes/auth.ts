@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { GITHUB_STRATEGY, useGithubStrategy } from '../auth/github-strategy.js';
-import { redirectAfterSignIn } from '../auth/redirects.js';
+import { authenticateCallback, redirectAfterSignIn, redirectOnSignInError } from '../auth/redirects.js';
 
 // Mount point for `/auth` (F3). S2 appends `POST /auth/logout` (with `requireJson`) at the end,
 // E1 adds the callback's failure redirect (`CLIENT_URL/login?error=oauth`).
@@ -11,10 +11,12 @@ export const authRouter = Router();
 authRouter.get('/github', useGithubStrategy, passport.authenticate(GITHUB_STRATEGY));
 
 // GitHub redirects here: passport checks `state`, exchanges the code, runs the verify
-// callback (upsert user) and `req.login` (regenerates the session id).
+// callback (upsert user) and `req.login` (regenerates the session id). Any failure, denial
+// or `state` mismatch redirects to `CLIENT_URL/login?error=oauth`.
 authRouter.get(
   '/github/callback',
   useGithubStrategy,
-  passport.authenticate(GITHUB_STRATEGY),
+  authenticateCallback,
   redirectAfterSignIn,
+  redirectOnSignInError,
 );

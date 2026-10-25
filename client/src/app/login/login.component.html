@@ -6,6 +6,7 @@
       <button mat-raised-button color="primary" type="button" class="sign-in" (click)="signIn()">
         Sign in with GitHub
       </button>
+      <p *ngIf="errorMessage" class="login-error" role="alert">⚠ {{ errorMessage }}</p>
     </mat-card-content>
   </mat-card>
 </div>

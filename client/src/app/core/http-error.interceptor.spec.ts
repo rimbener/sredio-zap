@@ -1,9 +1,11 @@
 import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { ERROR_CODES, ErrorCode } from '@zaps/shared';
 import { environment } from '../../environments/environment';
 import { ApiError } from './api-error';
+import { AuthService, AuthState } from './auth.service';
 import { ERROR_MESSAGES, GENERIC_ERROR_MESSAGE, errorMessageFor } from './error-messages';
 import { HANDLED_ERROR_CODES, ME_URL, httpErrorInterceptor } from './http-error.interceptor';
 import { NotificationService } from './notification.service';
@@ -18,16 +20,22 @@ describe('httpErrorInterceptor', () => {
   let client: HttpClient;
   let http: HttpTestingController;
   let notifications: jasmine.SpyObj<NotificationService>;
+  let router: jasmine.SpyObj<Router>;
+  let auth: AuthService;
 
   beforeEach(() => {
     notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['show']);
+    router = jasmine.createSpyObj<Router>('Router', ['navigate']);
+    router.navigate.and.resolveTo(true);
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([httpErrorInterceptor])),
         provideHttpClientTesting(),
         { provide: NotificationService, useValue: notifications },
+        { provide: Router, useValue: router },
       ],
     });
+    auth = TestBed.inject(AuthService);
     client = TestBed.inject(HttpClient);
     http = TestBed.inject(HttpTestingController);
   });
@@ -84,6 +92,28 @@ describe('httpErrorInterceptor', () => {
     failGet(envelope('UNAUTHENTICATED'), 401);
     failGet(envelope('GITHUB_AUTH_REQUIRED'), 401);
     expect(notifications.show).not.toHaveBeenCalled();
+  });
+
+  it('on a 401 UNAUTHENTICATED sets auth to null and navigates to /login with authRedirect', () => {
+    let state: AuthState = undefined;
+    auth.user$.subscribe((s) => (state = s));
+
+    const error = failGet(envelope('UNAUTHENTICATED'), 401);
+
+    expect(error?.code).toBe('UNAUTHENTICATED');
+    expect(state).toBeNull();
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/login'], { state: { authRedirect: true } });
+  });
+
+  it('redirects on UNAUTHENTICATED even when the call site lists it in HANDLED_ERROR_CODES', () => {
+    const context = new HttpContext().set(HANDLED_ERROR_CODES, ['UNAUTHENTICATED']);
+    failGet(envelope('UNAUTHENTICATED'), 401, context);
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/login'], { state: { authRedirect: true } });
+  });
+
+  it('does not redirect for other errors', () => {
+    failGet(envelope('GITHUB_ERROR'), 502);
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('maps a network error to INTERNAL_ERROR with the generic text', () => {
