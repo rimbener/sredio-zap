@@ -1,16 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import type { EncryptedValue } from '@zaps/shared';
 
-/**
- * AES-256-GCM output, all fields base64 (Data-model.md → Shared type `EncryptedValue`).
- *
- * Defined locally until F1 lands `EncryptedValue` in `@zaps/shared`; then this
- * becomes a re-export of the shared type.
- */
-export interface EncryptedValue {
-  iv: string;
-  authTag: string;
-  ciphertext: string;
-}
+export type { EncryptedValue };
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
