@@ -1,5 +1,14 @@
 import { AbstractControl, FormControl, FormGroup, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
-import { AppDto, CreateZapInput, RepoDto, createZapSchema, pullRequestCommentConfigSchema } from '@zaps/shared';
+import {
+  AppDto,
+  CreateZapInput,
+  PatchZapInput,
+  RepoDto,
+  ZapDto,
+  ZapStep,
+  createZapSchema,
+  pullRequestCommentConfigSchema,
+} from '@zaps/shared';
 
 /** Default comment in create mode (Screens.md → Action card). */
 export const DEFAULT_COMMENT_BODY = 'Thanks @{{pr.author}} for opening this pull request!';
@@ -102,4 +111,49 @@ export function createZapForm(app: AppDto): ZapForm {
     },
     { validators: zapSchemaValidator(app) },
   );
+}
+
+/**
+ * The saved trigger repo as a picked value. Built from the stored `{ owner, repo }` (not from
+ * the repo list), so it stays valid when the repo isn't listed anymore (Screens.md → Trigger
+ * card) and an untouched repo is never sent as a change.
+ */
+export function savedRepo(zap: ZapDto): RepoDto {
+  const owner = String(zap.trigger.config['owner'] ?? '');
+  const repo = String(zap.trigger.config['repo'] ?? '');
+  return { owner, repo, fullName: `${owner}/${repo}`, htmlUrl: `https://github.com/${owner}/${repo}` };
+}
+
+/** Same repo, compared case-insensitively like GitHub names (Tasks.md → Spec gaps, 9). */
+export function sameRepo(a: Pick<RepoDto, 'owner' | 'repo'>, b: Pick<RepoDto, 'owner' | 'repo'>): boolean {
+  return a.owner.toLowerCase() === b.owner.toLowerCase() && a.repo.toLowerCase() === b.repo.toLowerCase();
+}
+
+/** The builder's form in edit mode: the create-mode form holding `zap`'s values, pristine. */
+export function editZapForm(app: AppDto, zap: ZapDto): ZapForm {
+  const form = createZapForm(app);
+  form.reset({
+    name: zap.name,
+    trigger: { event: zap.trigger.event, repo: savedRepo(zap) },
+    action: { event: zap.action.event, body: String(zap.action.config['body'] ?? '') },
+  });
+  return form;
+}
+
+function sameStep(a: ZapStep, b: ZapStep): boolean {
+  const keys = new Set([...Object.keys(a.config), ...Object.keys(b.config)]);
+  return a.app === b.app && a.event === b.event && [...keys].every((key) => a.config[key] === b.config[key]);
+}
+
+/**
+ * The `PATCH /api/zaps/:id` body: only the top-level fields (`name`, `trigger`, `action`)
+ * that differ from the saved Zap (Screens.md → Header bar → Save).
+ */
+export function toPatchZapInput(app: AppDto, value: ZapFormValue, saved: ZapDto): PatchZapInput {
+  const next = toCreateZapInput(app, value);
+  const patch: PatchZapInput = {};
+  if (next.name !== saved.name) patch.name = next.name;
+  if (!sameStep(next.trigger, saved.trigger)) patch.trigger = next.trigger;
+  if (!sameStep(next.action, saved.action)) patch.action = next.action;
+  return patch;
 }

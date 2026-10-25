@@ -55,4 +55,27 @@ describe('ZapsService', () => {
     req.flush(null, { status: 204, statusText: 'No Content' });
     expect(done).toBeTrue();
   });
+
+  it('get() GETs /api/zaps/:id', () => {
+    const zap = makeZap();
+    let result: ZapDto | undefined;
+    service.get(zap.id).subscribe((value) => (result = value));
+
+    const req = http.expectOne(`${environment.apiUrl}/api/zaps/${zap.id}`);
+    expect(req.request.method).toBe('GET');
+    req.flush(zap);
+    expect(result).toEqual(zap);
+  });
+
+  it('update() PATCHes the changed fields to /api/zaps/:id', () => {
+    const zap = makeZap({ name: 'Renamed' });
+    let result: ZapDto | undefined;
+    service.update(zap.id, { name: 'Renamed' }).subscribe((value) => (result = value));
+
+    const req = http.expectOne(`${environment.apiUrl}/api/zaps/${zap.id}`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ name: 'Renamed' });
+    req.flush(zap);
+    expect(result).toEqual(zap);
+  });
 });

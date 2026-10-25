@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import type { AppDto, RepoDto } from '@zaps/shared';
-import { TriggerForm, isRepo, type RepoValue } from './zap-form';
+import { TriggerForm, isRepo, sameRepo, type RepoValue } from './zap-form';
 
 /** Step 1 of the builder: app (read-only), event and repository (Screens.md → Trigger card). */
 @Component({
@@ -33,7 +33,18 @@ export class TriggerStepComponent {
   @Input({ required: true }) group!: TriggerForm;
   /** Loaded once by the builder; filtered here as the user types. */
   @Input() repos: RepoDto[] = [];
+  /** Whether `repos` arrived; a list that failed to load doesn't count as "missing". */
+  @Input() reposLoaded = false;
   @Input() expanded = false;
+
+  /**
+   * The current repo (e.g. a saved one in edit mode) isn't in the loaded list, for example
+   * because the user lost admin rights (Screens.md → Trigger card).
+   */
+  get repoMissing(): boolean {
+    const value = this.group.controls.repo.value;
+    return this.reposLoaded && isRepo(value) && !this.repos.some((repo) => sameRepo(repo, value));
+  }
 
   readonly displayRepo = (value: RepoValue): string => (isRepo(value) ? value.fullName : value ?? '');
 

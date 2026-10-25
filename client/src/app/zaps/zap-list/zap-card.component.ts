@@ -24,7 +24,8 @@ export type ZapToggleEvent = { zap: ZapDto; enabled: boolean };
 
 /**
  * One Zap on the list (Screens.md → Zap list → Card contents). The card only renders and
- * emits; the list owns the behavior (toggle: S8, delete: S9, edit: S7).
+ * emits; the list owns the behavior (toggle: S8, delete: S9). Clicking the card anywhere
+ * except the toggle or the ⋮ menu emits `edit`, like ⋮ → Edit.
  */
 @Component({
   selector: 'app-zap-card',

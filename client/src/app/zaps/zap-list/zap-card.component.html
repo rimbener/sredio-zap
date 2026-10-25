@@ -1,4 +1,4 @@
-<mat-card class="zap-card">
+<mat-card class="zap-card" (click)="onEdit()">
   <mat-card-header>
     <img *ngIf="app" mat-card-avatar class="app-icon" [src]="app.icon" [alt]="app.name" />
     <mat-card-title class="name">{{ zap.name }}</mat-card-title>

@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Router } from '@angular/router';
 import type { AppDto, ZapDto } from '@zaps/shared';
 import { filter, finalize, forkJoin, switchMap } from 'rxjs';
 import { AppsService } from '../../core/apps.service';
@@ -28,6 +29,7 @@ export class ZapListComponent implements OnInit {
   private readonly appsService = inject(AppsService);
   private readonly dialog = inject(MatDialog);
   private readonly zapToggle = inject(ZapToggleService);
+  private readonly router = inject(Router);
 
   state: ListState = 'loading';
   zaps: ZapDto[] = [];
@@ -81,8 +83,10 @@ export class ZapListComponent implements OnInit {
     return this.togglingIds.has(zap.id);
   }
 
-  /** Card ⋮ → Edit: opens `/zaps/:id` (S7). */
-  onEdit(_zap: ZapDto): void {}
+  /** Card click or ⋮ → Edit: opens the builder at `/zaps/:id`. */
+  onEdit(zap: ZapDto): void {
+    void this.router.navigate(['/zaps', zap.id]);
+  }
 
   /** Card ⋮ → Delete: confirm, then `DELETE /api/zaps/:id` (S9). */
   onDelete(zap: ZapDto): void {
