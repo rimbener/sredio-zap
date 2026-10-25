@@ -11,16 +11,43 @@
       </mat-select>
     </mat-form-field>
 
+    <div class="insert-row">
+      <button
+        mat-stroked-button
+        type="button"
+        class="insert-field"
+        [matMenuTriggerFor]="tokenMenu"
+        [matMenuTriggerRestoreFocus]="false"
+        [disabled]="!tokens.length"
+      >
+        <mat-icon>add</mat-icon>
+        Insert field
+      </button>
+      <mat-menu #tokenMenu="matMenu">
+        <button mat-menu-item type="button" *ngFor="let token of tokens" (click)="insertToken(token.key)">
+          {{ token.label }} <code>{{ formatToken(token.key) }}</code>
+        </button>
+      </mat-menu>
+    </div>
+
     <mat-form-field>
       <mat-label>Comment</mat-label>
       <textarea
+        #bodyInput
         matInput
         formControlName="body"
+        [errorStateMatcher]="errorStateMatcher"
         cdkTextareaAutosize
         cdkAutosizeMinRows="3"
         cdkAutosizeMaxRows="20"
       ></textarea>
-      <mat-error>{{ group.controls.body.getError('zod') }}</mat-error>
+      <mat-hint align="end" class="counter">{{ body.length }} / {{ maxLength }}</mat-hint>
+      <mat-error *ngFor="let error of bodyErrors">{{ error }}</mat-error>
     </mat-form-field>
+
+    <section class="preview" aria-label="Preview">
+      <h3 class="preview-title">Preview</h3>
+      <div class="preview-body">{{ preview }}</div>
+    </section>
   </div>
 </mat-expansion-panel>
