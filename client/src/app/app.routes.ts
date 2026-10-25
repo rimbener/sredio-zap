@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth.guards';
+import { unsavedChangesGuard } from './zaps/zap-builder/unsaved-changes.guard';
 
 /**
  * Every route from Screens.md → Routes. Slices fill in the components; they
@@ -24,12 +25,14 @@ export const routes: Routes = [
       {
         path: 'zaps/new',
         canActivate: [authGuard],
+        canDeactivate: [unsavedChangesGuard],
         loadComponent: () =>
           import('./zaps/zap-builder/zap-builder.component').then((m) => m.ZapBuilderComponent),
       },
       {
         path: 'zaps/:id',
         canActivate: [authGuard],
+        canDeactivate: [unsavedChangesGuard],
         loadComponent: () =>
           import('./zaps/zap-builder/zap-builder.component').then((m) => m.ZapBuilderComponent),
       },
