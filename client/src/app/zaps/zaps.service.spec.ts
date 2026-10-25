@@ -45,4 +45,14 @@ describe('ZapsService', () => {
     req.flush(created);
     expect(result).toEqual(created);
   });
+
+  it('delete() DELETEs /api/zaps/:id', () => {
+    let done = false;
+    service.delete('abc123').subscribe({ complete: () => (done = true) });
+
+    const req = http.expectOne(`${environment.apiUrl}/api/zaps/abc123`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(done).toBeTrue();
+  });
 });

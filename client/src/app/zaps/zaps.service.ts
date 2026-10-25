@@ -19,4 +19,9 @@ export class ZapsService {
   create(input: CreateZapInput): Observable<ZapDto> {
     return this.http.post<ZapDto>(this.url, input);
   }
+
+  /** `DELETE /api/zaps/:id`: deletes the Zap, its runs and its webhook (`204`). */
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${id}`);
+  }
 }

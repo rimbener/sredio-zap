@@ -14,7 +14,7 @@ MEAN stack: MongoDB, Express 5, Angular 16 (+ Angular Material), Node 18, TypeSc
 | [docs/Tasks.md](docs/Tasks.md) | Implementation plan (slices and waves) |
 
 > **Status:** the app is being built slice by slice (see [Tasks.md](docs/Tasks.md)). Until the remaining tasks land:
-> - `npm run dev:server` serves GitHub sign-in (`/auth/github`), sign-out (`POST /auth/logout`), `GET /api/me`, `GET /api/apps`, `GET /api/github/repos`, `GET /api/zaps`, `POST /api/zaps`, `POST /api/zaps/:id/enable` and `/disable`, `GET /api/zaps/:id/runs` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (Zap edit/delete: S7 onward).
+> - `npm run dev:server` serves GitHub sign-in (`/auth/github`), sign-out (`POST /auth/logout`), `GET /api/me`, `GET /api/apps`, `GET /api/github/repos`, `GET /api/zaps`, `POST /api/zaps`, `POST /api/zaps/:id/enable` and `/disable`, `DELETE /api/zaps/:id`, `GET /api/zaps/:id/runs` and the webhook receiver `POST /webhooks/github`; the other routes arrive with the slices (Zap edit: S7).
 
 ## Prerequisites
 
