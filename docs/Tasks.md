@@ -346,6 +346,14 @@ Moved to [tasks/done/D1-readme-setup-smee-seed-tests-redeliver.md](../tasks/done
 
 ---
 
+## Post-plan UI improvements
+
+### U1. Builder: loading overlay instead of replacing the builder on save
+
+Moved to [tasks/done/U1-builder-save-loading-overlay.md](../tasks/done/U1-builder-save-loading-overlay.md).
+
+---
+
 ## Spec gaps
 
 Things the docs don't settle. Each lists what this plan assumes; confirm before or during the relevant slice.

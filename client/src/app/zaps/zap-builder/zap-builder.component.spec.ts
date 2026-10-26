@@ -157,7 +157,10 @@ describe('ZapBuilderComponent (create mode)', () => {
       trigger: { app: 'github', event: 'pull_request.opened', config: { owner: 'acme', repo: 'api' } },
       action: { app: 'github', event: 'pull_request.comment', config: { body: DEFAULT_COMMENT_BODY } },
     }, jasmine.any(HttpContext));
-    expect(navigate).toHaveBeenCalledWith(['/zaps', ZAP.id], { replaceUrl: true });
+    expect(navigate).toHaveBeenCalledWith(['/zaps', ZAP.id], {
+      replaceUrl: true,
+      state: { savedZap: { zap: ZAP, app: GITHUB, repos: REPOS } },
+    });
     expect(notifications.show).toHaveBeenCalledWith('Saved');
   });
 

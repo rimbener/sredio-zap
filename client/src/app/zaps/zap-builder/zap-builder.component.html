@@ -1,5 +1,5 @@
-<div class="builder">
-  <header class="header">
+<div class="builder" [attr.aria-busy]="saving">
+  <header class="header" [attr.inert]="saving ? '' : null">
     <a mat-icon-button routerLink="/zaps" aria-label="Back to your Zaps">
       <mat-icon>arrow_back</mat-icon>
     </a>
@@ -16,7 +16,7 @@
       <span class="toggle" [matTooltip]="toggleTooltip" [matTooltipDisabled]="!toggleBlocked">
         <mat-slide-toggle
           [checked]="zap?.enabled ?? false"
-          [disabled]="toggleBlocked || toggling"
+          [disabled]="toggleBlocked || toggling || saving"
           [attr.aria-label]="zap?.enabled ? 'Turn off this Zap' : 'Turn on this Zap'"
           (change)="onToggle($event)"
         >
@@ -30,7 +30,14 @@
       </button>
 
       <ng-container *ngIf="zap">
-        <button mat-icon-button type="button" class="menu-button" [matMenuTriggerFor]="zapMenu" aria-label="Zap actions">
+        <button
+          mat-icon-button
+          type="button"
+          class="menu-button"
+          [matMenuTriggerFor]="zapMenu"
+          [disabled]="saving"
+          aria-label="Zap actions"
+        >
           <mat-icon>more_vert</mat-icon>
         </button>
         <mat-menu #zapMenu="matMenu">
@@ -54,7 +61,7 @@
     <span>{{ enabledBanner }}</span>
   </div>
 
-  <mat-accordion *ngIf="form && app" class="steps">
+  <mat-accordion *ngIf="form && app" class="steps" [attr.inert]="saving ? '' : null">
     <app-trigger-step
       [app]="app"
       [group]="form.controls.trigger"
@@ -65,4 +72,9 @@
     <div class="connector" aria-hidden="true"></div>
     <app-action-step [app]="app" [group]="form.controls.action"></app-action-step>
   </mat-accordion>
+
+  <!-- Saving: the builder stays rendered underneath, out of reach (Screens.md → States, U1). -->
+  <div *ngIf="saving" class="saving-overlay" role="status" aria-label="Saving">
+    <mat-spinner diameter="48"></mat-spinner>
+  </div>
 </div>

@@ -31,6 +31,15 @@ import { TriggerStepComponent } from './trigger-step.component';
 import { ZapForm, createZapForm, editZapForm, toCreateZapInput, toPatchZapInput } from './zap-form';
 
 /**
+ * Router `state` from a create-mode Save to `/zaps/:id` (U1): the created Zap, its app and the
+ * repo list (`null` if it failed to load), so the edit-mode builder shows them at once
+ * instead of refetching them behind a full-page spinner.
+ */
+export interface SavedZapState {
+  savedZap: { zap: ZapDto; app: AppDto; repos: RepoDto[] | null };
+}
+
+/**
  * The Zap builder page and its header bar (Screens.md → Zap builder).
  * Create mode is `/zaps/new?appId=…`; edit mode is `/zaps/:id`.
  */
@@ -96,9 +105,13 @@ export class ZapBuilderComponent implements OnInit {
 
   @ViewChild(MatSlideToggle) private slideToggle?: MatSlideToggle;
 
+  /** Read here: the current navigation is only available while this component is being created. */
+  private readonly savedState = this.readSavedState();
+
   ngOnInit(): void {
-    if (this.zapId !== null) this.loadEdit(this.zapId);
-    else this.loadCreate();
+    if (this.zapId === null) this.loadCreate();
+    else if (this.savedState) this.showSaved(this.savedState);
+    else this.loadEdit(this.zapId);
   }
 
   get canSave(): boolean {
@@ -226,6 +239,26 @@ export class ZapBuilderComponent implements OnInit {
       });
   }
 
+  /**
+   * The Zap just created by the create-mode builder, passed in the router `state` of the
+   * Save navigation. Only for a fresh in-app navigation (not the first one after a reload,
+   * nor back/forward), so a stale history entry is never shown instead of the server's copy.
+   */
+  private readSavedState(): SavedZapState['savedZap'] | null {
+    const navigation = this.router.getCurrentNavigation();
+    if (!navigation || navigation.trigger !== 'imperative' || !navigation.previousNavigation) return null;
+    const saved = (navigation.extras.state as Partial<SavedZapState> | undefined)?.savedZap;
+    return saved && saved.zap.id === this.zapId ? saved : null;
+  }
+
+  /** Edit mode right after a create: the saved Zap, without a load (U1). */
+  private showSaved({ zap, app, repos }: SavedZapState['savedZap']): void {
+    this.setRepos(repos);
+    this.zap = zap;
+    this.app = app;
+    this.form = editZapForm(app, zap);
+  }
+
   private leaveUnavailableApp(): void {
     void this.router.navigate(['/zaps'], { replaceUrl: true });
     this.notifications.show(ZapBuilderComponent.APP_UNAVAILABLE_MESSAGE);
@@ -245,21 +278,36 @@ export class ZapBuilderComponent implements OnInit {
   }
 
   private create(app: AppDto, form: ZapForm): void {
-    this.saving = true;
-    this.zaps.create(toCreateZapInput(app, form.getRawValue()), saveContext()).subscribe({
+    const input = toCreateZapInput(app, form.getRawValue());
+    this.startSaving(form);
+    this.zaps.create(input, saveContext()).subscribe({
       next: (zap) => {
         // Pristine first, so the unsaved-changes guard (E10) doesn't block the navigation.
         form.markAsPristine();
-        void this.router.navigate(['/zaps', zap.id], { replaceUrl: true });
+        const state: SavedZapState = { savedZap: { zap, app, repos: this.reposLoaded ? this.repos : null } };
+        // The overlay stays until the edit-mode builder replaces this one (U1).
+        const done = () => this.stopSaving(form);
+        this.router.navigate(['/zaps', zap.id], { replaceUrl: true, state }).then(done, done);
         this.notifications.show('Saved');
-        this.saving = false;
       },
       error: (error: unknown) => {
         // The form keeps its values; the interceptor shows the snackbar for other codes.
-        this.saving = false;
+        this.stopSaving(form);
         this.showSaveError(form, error);
       },
     });
+  }
+
+  /** The saving overlay covers the builder and its form can't be edited (Screens.md → States). */
+  private startSaving(form: ZapForm): void {
+    this.saving = true;
+    form.disable();
+  }
+
+  /** Before any save error is applied: field errors (E8) need enabled controls. */
+  private stopSaving(form: ZapForm): void {
+    this.saving = false;
+    form.enable();
   }
 
   /** Edit mode: PATCH only the changed top-level fields (Screens.md → Header bar → Save). */
@@ -271,17 +319,17 @@ export class ZapBuilderComponent implements OnInit {
       this.notifications.show('Saved');
       return;
     }
-    this.saving = true;
+    this.startSaving(form);
     this.zaps.update(saved.id, patch, saveContext()).subscribe({
       next: (zap) => {
         this.zap = zap;
+        this.stopSaving(form);
         form.markAsPristine();
         this.notifications.show('Saved');
-        this.saving = false;
       },
       error: (error: unknown) => {
         // The form stays dirty with its values; the interceptor shows the snackbar for other codes.
-        this.saving = false;
+        this.stopSaving(form);
         this.showSaveError(form, error);
       },
     });
