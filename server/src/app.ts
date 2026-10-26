@@ -30,6 +30,11 @@ export function createApp(options: CreateAppOptions = {}): Express {
   const env = options.env ?? getEnv();
   const passport = configurePassport();
   const app = express();
+  // Served over HTTPS (the callback URL is the server's public URL): mark the session cookie
+  // `Secure` and trust the TLS-terminating proxy's `X-Forwarded-Proto`, which express-session
+  // needs to set a `Secure` cookie. Plain-http localhost keeps both off.
+  const secureCookie = new URL(env.GITHUB_CALLBACK_URL).protocol === 'https:';
+  if (secureCookie) app.set('trust proxy', 1);
 
   // 1. Security headers
   app.use(helmet());
@@ -50,6 +55,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
       cookie: {
         httpOnly: true,
         sameSite: 'lax',
+        secure: secureCookie,
         maxAge: SESSION_TTL_SECONDS * 1000,
       },
     }),

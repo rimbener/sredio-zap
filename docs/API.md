@@ -11,7 +11,7 @@ Data shapes referenced here are defined in [Data-model.md](Data-model.md). Reque
 
 ## Conventions
 - **Format:** JSON in and out. Every `POST` / `PATCH` under `/api`, and `POST /auth/logout`, requires `Content-Type: application/json` (`requireJson`, checked strictly with `req.is('application/json')`), otherwise `415`. `DELETE` has no body and isn't checked.
-- **Auth:** session cookie `zaps.sid` set by express-session (httpOnly, `sameSite=lax`, 7-day lifetime). The client sends it with `withCredentials: true`. Any `/api` route without a valid session returns `401`.
+- **Auth:** session cookie `zaps.sid` set by express-session (httpOnly, `sameSite=lax`, 7-day lifetime). It is also `Secure` when `GITHUB_CALLBACK_URL` is `https://`; the app then sets `trust proxy` to `1` so a TLS-terminating proxy's `X-Forwarded-Proto` counts. On plain-http localhost it isn't `Secure`. The client sends it with `withCredentials: true`. Any `/api` route without a valid session returns `401`.
 - **Ending a session:** one shared helper, `endSession(req, res)`, is used by both `POST /auth/logout` and the `GITHUB_AUTH_REQUIRED` path. It waits for each async step before the next: `req.logout(cb)` (async in passport 0.7), then `req.session.destroy(cb)`, then `res.clearCookie('zaps.sid')`, then the response is sent.
 - **CSRF:** no CSRF token. The protection has three parts:
   - `sameSite=lax` keeps the cookie off requests from other *sites*. But every `localhost:*` origin counts as the same site, so it doesn't stop another local app on a different port.
@@ -297,8 +297,8 @@ The receiver never returns `5xx` for a failed GitHub comment. That failure is re
 |---|---|---|
 | `PORT` | `3000` | Server port. |
 | `CLIENT_URL` | `http://localhost:4200` | CORS origin and post-login redirect. |
-| `MONGODB_URI` | `mongodb://localhost:27017/zaps` | |
-| `SESSION_SECRET` | random | Signs the session cookie. |
+| `MONGODB_URI` | `mongodb://zaps:<password>@localhost:27017/zaps?authSource=admin` | Root user `zaps` from `docker-compose.yml`; the password is `MONGO_ROOT_PASSWORD` in the root `.env` (read by Compose, not by the server). |
+| `SESSION_SECRET` | random, at least 32 chars | Signs the session cookie. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | OAuth App credentials. |
 | `GITHUB_CALLBACK_URL` | `http://localhost:3000/auth/github/callback` | Must match the OAuth App setting. |
 | `WEBHOOK_PUBLIC_URL` | `https://smee.io/<channel>` | Base URL GitHub posts to (each hook adds `?zap=<zapId>`); smee-client forwards it to `http://localhost:3000/webhooks/github`. |

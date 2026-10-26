@@ -4,7 +4,7 @@ import type { Profile } from 'passport-github2';
 import request from 'supertest';
 import { createApp } from '../app.js';
 import { decrypt } from '../crypto/token.js';
-import { getTokenEncryptionKey } from '../env.js';
+import { getTokenEncryptionKey, loadEnv } from '../env.js';
 import { UserModel, type UserDocument } from '../models/user.js';
 import { useTestDb } from '../test/db.js';
 import { TEST_ENV } from '../test/env.js';
@@ -71,5 +71,14 @@ describe('GET /auth/github', () => {
     assert.match(location.searchParams.get('state') ?? '', /^.{16,}$/);
     // The state lives in the session, so the response sets the session cookie.
     assert.ok(String(res.headers['set-cookie']).includes('zaps.sid='));
+    assert.doesNotMatch(String(res.headers['set-cookie']), /;\s*Secure/i);
+  });
+
+  it('HTTPS callback URL → Secure cookie behind a TLS-terminating proxy', async () => {
+    const env = loadEnv({ ...TEST_ENV, GITHUB_CALLBACK_URL: 'https://zaps.example.com/auth/github/callback' });
+    const res = await request(createApp({ env })).get('/auth/github').set('X-Forwarded-Proto', 'https');
+
+    assert.equal(res.status, 302);
+    assert.match(String(res.headers['set-cookie']), /zaps\.sid=.*;\s*Secure/i);
   });
 });

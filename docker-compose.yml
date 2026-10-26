@@ -2,8 +2,14 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Root user, created when the volume is first initialized. The password comes from the
+    # root `.env` (git-ignored; see `.env.example`), which Compose reads automatically.
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: zaps
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env (see README → Start MongoDB)}
+    # Loopback only: nothing else on the network can reach MongoDB.
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
 

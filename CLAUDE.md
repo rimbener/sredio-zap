@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Node 18.20.8 (`nvm use`); Angular 16 doesn't support newer Node. npm workspaces: `shared`, `server`, `client`.
 
 ```sh
-docker compose up -d        # MongoDB 7 on localhost:27017
+docker compose up -d        # MongoDB 7 on 127.0.0.1:27017; needs MONGO_ROOT_PASSWORD in the root .env
 npm run dev                 # builds shared, then runs the 4 below in one terminal (concurrently)
 npm run dev:shared          # tsc --watch on /shared
 npm run dev:server          # builds shared, then tsx watch (API on :3000)
