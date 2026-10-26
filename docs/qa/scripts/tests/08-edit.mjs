@@ -1,0 +1,20 @@
+export default async ({ page, shot, log, text }) => {
+  await page.goto('http://localhost:4200/zaps/6adf2a86949ee18986354de3'); await page.waitForTimeout(2500);
+  log('save disabled when pristine:', await page.locator('button.save').isDisabled());
+  await page.locator('input[aria-label="Zap name"]').fill('QA Thank PRs (edited)');
+  log('toggle disabled while dirty:', await page.locator('mat-slide-toggle button').first().isDisabled());
+  await page.getByText('2. Action · GitHub').click(); await page.waitForTimeout(500);
+  await page.locator('textarea[formcontrolname="body"]').fill('Edited: hi @{{pr.author}}, see {{pr.url}} in {{repo.fullName}}');
+  const req = page.waitForRequest(r => r.method()==='PATCH');
+  await page.locator('button.save').click();
+  const p = await req; log('PATCH body:', p.postData());
+  await page.waitForTimeout(1500); log('snack:', await text('mat-snack-bar-container'), '| save disabled:', await page.locator('button.save').isDisabled());
+  await page.reload(); await page.waitForTimeout(2500);
+  log('after reload name:', await page.locator('input[aria-label="Zap name"]').inputValue());
+  await page.goto('http://localhost:4200/zaps'); await page.waitForTimeout(1500);
+  log('list:', await text('mat-card')); await shot('08-list');
+  await page.goto('http://localhost:4200/zaps/000000000000000000000000'); await page.waitForTimeout(2000);
+  log('unknown id:', await text('.builder, app-zap-builder')); await shot('08-notfound');
+  await page.goto('http://localhost:4200/zaps/not-an-id'); await page.waitForTimeout(2000);
+  log('invalid id:', await text('app-zap-builder'));
+};

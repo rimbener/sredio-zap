@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/Screens.md`: routes, builder behavior, client error handling, component layout.
 - `docs/Tasks.md`: task summary, dependencies, waves, and **Conflict notes** (which task owns which file). Gaps in the spec are listed under "Spec gaps"; don't invent behavior.
 
-`docs/history.md` is a prompt/response log appended automatically by hooks in `.claude/hooks/`; don't edit it.
+`docs/qa/` holds the manual QA run against the PRD (results, screenshots, Playwright-over-CDP scripts). `docs/history.md` is a prompt/response log appended automatically by hooks in `.claude/hooks/`; don't edit it.
 
 ## Commands
 
