@@ -4809,3 +4809,110 @@ I deleted the last agent working folder, the U1 one, along with its local branch
 
 Your local `main` is up to date with #35 merged. The only uncommitted change is your `docs/history.md`.
 
+
+---
+
+### 🧑 User — 2026-10-26 07:12:34 (session `09768c91`)
+
+As a QA Engineer run manual tests to verify that the original @docs/PRD.md is covered by the final code, you can use chrome to test it
+
+### 🤖 Claude — 2026-10-26 07:20:11
+
+The OAuth redirect works: it reached GitHub's login with scopes `public_repo admin:repo_hook`. But nobody signed in within 5 minutes.
+
+Please sign into GitHub in the **QA Chrome window** (the separate one I opened, which shows the GitHub login page) and authorize the app. Reply here once you're on the Zaps list and I'll continue the run.
+
+---
+
+### 🧑 User — 2026-10-26 07:24:01 (session `09768c91`)
+
+done
+
+### 🤖 Claude — 2026-10-26 07:29:23
+
+The final code covers every must-have in `docs/PRD.md`. I tested it by hand in a real Chrome window against a live GitHub repo, and nothing failed.
+
+| PRD must-have | Result | How I checked |
+|---|---|---|
+| Sign in with GitHub | ✅ | Real GitHub login. While signed out, `/zaps` and the builder send you to `/login`, and the API returns 401. Both error messages on the login page show up. |
+| Create a Zap: PR opened → comment on that PR | ✅ | Built one from the app picker on `rimbener/zaps-qa-sandbox`. |
+| A real PR gets the comment | ✅ | [PR #1](https://github.com/rimbener/zaps-qa-sandbox/pull/1) got `Thanks @rimbener for "QA PR one" (#1) — QA run ✅ ñ`. The run was recorded as `success` with the comment's URL. |
+| Zaps belong to their owner | ✅ | I added another user's Zap straight into the database. Reading, editing, turning on, deleting it or listing its runs all returned `404 NOT_FOUND`, and it never appeared in my list. |
+| List, create and edit: name, on/off, trigger, action, field mapping | ✅ | Details below. |
+| App picker with coming-soon apps | ✅ | GitHub can be picked. GitLab, Jira, Linear and Slack show "Coming soon" and can't be clicked. Opening one by URL sends you back to `/zaps` with the message "This app isn't available yet." |
+
+**Builder:**
+- Repo search ignores letter case, and typed text that isn't a listed repo is rejected.
+- The name must be 1–100 characters.
+- The comment is pre-filled with the default thanks text, with a character counter and a live preview.
+- Insert field puts tokens where the cursor is, and an unknown token shows "Unknown field {{nope}}".
+- Leaving with unsaved changes asks "Discard unsaved changes?".
+- Save is disabled until something changes, and the on/off switch is disabled until the Zap is saved.
+- An edit sends only the changed fields, and [PR #2](https://github.com/rimbener/zaps-qa-sandbox/pull/2) got the edited comment.
+- An unknown or malformed Zap address shows "Zap not found".
+
+**On/off and webhook:**
+- Turning a Zap on adds the GitHub webhook, and turning it off or deleting the Zap removes it. [PR #3](https://github.com/rimbener/zaps-qa-sandbox/pull/3), opened while the Zap was off, got no comment.
+- Closing and reopening a PR adds no comment.
+- Re-sending the same GitHub delivery didn't create a second comment or run.
+
+**Other checks:**
+- Delete from the list and from the builder both ask for confirmation first.
+- Sign out lands on `/login`.
+- Requests that aren't JSON are rejected with 415, which is the app's CSRF protection.
+
+**Not tested by hand:**
+- The Copilot is a nice-to-have and the spec puts it off for this version.
+- Some failure cases need GitHub to be in a broken state: a revoked token, a leftover webhook, and moving the repo of a Zap that's on. These have automated tests, but I didn't trigger them in the browser.
+
+**Your data:**
+- My first delete script also removed your existing "Untitled Zap", and auto mode blocked it. I rewrote the script so it only deleted the two Zaps I created, and yours is untouched.
+- I removed the fake user I added for the ownership test.
+
+**Still running, for you to clean up:**
+- The `rimbener/zaps-qa-sandbox` repo, with 3 open PRs and no webhooks left. Delete it when you're done: `gh repo delete rimbener/zaps-qa-sandbox`.
+- `npm run dev`, Docker with Mongo, and the separate QA Chrome window.
+
+The screenshots and test scripts are in `/private/tmp/claude-501/-Users-hernanlaura-projects-personal-sredio-zap/09768c91-d9ae-486f-b465-3fd5d429cef9/scratchpad/`.
+
+---
+
+### 🧑 User — 2026-10-26 07:33:51 (session `09768c91`)
+
+move the screenshots and scripts into a folder in the project
+
+### 🤖 Claude — 2026-10-26 07:34:43
+
+I moved the screenshots and scripts into `docs/qa/`, and the runner still works from there: I re-ran the first script from its new location and it passed (that also refreshed its two login screenshots).
+
+```
+docs/qa/
+  README.md          results table, PRD → evidence mapping, how to re-run
+  screenshots/       13 PNGs (01-login … 10-confirm)
+  scripts/run.mjs    connects to Chrome over CDP, saves screenshots to ../screenshots
+  scripts/tests/     01-signed-out.mjs … 10-delete-signout.mjs
+```
+
+What I changed along the way:
+- **Runner:** it no longer depends on the scratchpad. It saves screenshots next to itself and reads where `playwright-core` is installed from a `PLAYWRIGHT` env var. `playwright-core` isn't a dependency in `docs/Tech-Stack.md`, so I didn't add it to the project.
+- **Screenshot rename:** `error.png` is now `02-signin-timeout.png`. It's the GitHub login page from the first sign-in attempt that timed out.
+- **`docs/qa/README.md`:** written up from my earlier summary, plus the commands to re-run the scripts.
+- **CLAUDE.md:** one line pointing to `docs/qa/`, per the project rule.
+
+Scripts 06–09 still contain the Zap ids from this run, and the PR and webhook steps were done with `gh` and `mongosh` between scripts, so re-running them needs some editing. The README says so.
+
+Nothing is committed. The `docs/prompt-history.md` change in `git status` comes from your hooks, not from me.
+
+---
+
+### 🧑 User — 2026-10-26 07:38:07 (session `09768c91`)
+
+commit your changes directly (no PR)
+
+### 🤖 Claude — 2026-10-26 07:38:16
+
+I committed the QA folder (`docs/qa/`) and the one-line CLAUDE.md update directly to `main` as `7fa71c4 docs(qa): add manual QA run against the PRD`. Nothing is pushed yet; tell me if you want me to push to `origin/main`.
+
+Two things I left out of the commit:
+- **`docs/prompt-history.md`:** your hooks update this file, so I didn't stage it.
+- **`FSD Brief.pdf`:** it was already untracked before this session.
