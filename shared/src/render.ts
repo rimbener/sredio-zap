@@ -62,13 +62,28 @@ export interface PullRequestPayload {
   };
 }
 
-/** Maps a `pull_request` webhook payload to the values of the `github / pull_request.opened` tokens. */
+/** An `@` that GitHub would read as the start of a user or team mention. */
+const MENTION = /(^|[^A-Za-z0-9_`])@(?=[A-Za-z0-9])/g;
+
+/**
+ * Puts a zero-width space after each mention's `@`, so text written by the PR's author
+ * can't ping users or teams from a comment posted with the Zap owner's account.
+ * It renders the same, minus the notification.
+ */
+export function neutralizeMentions(text: string): string {
+  return text.replace(MENTION, '$1@​');
+}
+
+/**
+ * Maps a `pull_request` webhook payload to the values of the `github / pull_request.opened` tokens.
+ * The free-text fields (title, body) come from whoever opened the PR, so their mentions are neutralized.
+ */
 export function buildTokenValues(payload: PullRequestPayload): TokenValues {
   const { pull_request: pr, repository: repo } = payload;
   return {
     'pr.number': String(pr.number),
-    'pr.title': pr.title,
-    'pr.body': pr.body ?? '',
+    'pr.title': neutralizeMentions(pr.title),
+    'pr.body': neutralizeMentions(pr.body ?? ''),
     'pr.url': pr.html_url,
     'pr.author': pr.user.login,
     'repo.name': repo.name,

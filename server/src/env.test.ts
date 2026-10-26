@@ -53,6 +53,7 @@ describe('loadEnv', () => {
     assert.throws(() => loadEnv({ ...TEST_ENV, CLIENT_URL: 'not a url' }), /CLIENT_URL/);
     assert.throws(() => loadEnv({ ...TEST_ENV, MONGODB_URI: 'http://x' }), /MONGODB_URI/);
     assert.throws(() => loadEnv({ ...TEST_ENV, SESSION_SECRET: '' }), /SESSION_SECRET/);
+    assert.throws(() => loadEnv({ ...TEST_ENV, SESSION_SECRET: 'x'.repeat(31) }), /SESSION_SECRET/);
   });
 
   it('lists every invalid var at once', () => {

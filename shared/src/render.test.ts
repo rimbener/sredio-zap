@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildTokenValues,
+  neutralizeMentions,
   renderTemplate,
   SAMPLE_TOKEN_VALUES,
   truncateComment,
@@ -46,6 +47,31 @@ test('renders a null PR body as empty', () => {
   const values = buildTokenValues({ ...payload, pull_request: { ...payload.pull_request, body: null } });
   assert.equal(values['pr.body'], '');
   assert.equal(renderTemplate('[{{pr.body}}]', values), '[]');
+});
+
+test('neutralizes mentions in the PR title and body, not in the template', () => {
+  const values = buildTokenValues({
+    ...payload,
+    pull_request: {
+      ...payload.pull_request,
+      title: '@admin please merge',
+      body: 'cc @alice, (@acme/core-team)\nmail me at bob@example.com, not `@code`',
+    },
+  });
+  assert.equal(values['pr.title'], '@​admin please merge');
+  assert.equal(
+    values['pr.body'],
+    'cc @​alice, (@​acme/core-team)\nmail me at bob@example.com, not `@code`',
+  );
+  assert.equal(values['pr.author'], 'alice');
+  assert.equal(
+    renderTemplate('Thanks @{{pr.author}}: {{pr.title}}', values),
+    'Thanks @alice: @​admin please merge',
+  );
+});
+
+test('neutralizeMentions leaves text without mentions unchanged', () => {
+  assert.equal(neutralizeMentions('Closes #3 — a@b.c, @, @-x, _@y'), 'Closes #3 — a@b.c, @, @-x, _@y');
 });
 
 test('does not interpret token values as templates or replacement patterns', () => {

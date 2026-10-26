@@ -4916,3 +4916,154 @@ I committed the QA folder (`docs/qa/`) and the one-line CLAUDE.md update directl
 Two things I left out of the commit:
 - **`docs/prompt-history.md`:** your hooks update this file, so I didn't stage it.
 - **`FSD Brief.pdf`:** it was already untracked before this session.
+
+---
+
+### 🧑 User — 2026-10-26 07:54:47 (session `c4127dc5`)
+
+run a security review following: https://owasp.org/Top10/2025/
+
+### 🤖 Claude — 2026-10-26 07:56:58
+
+The core security controls are solid. The real risks are an exposed, password-less MongoDB in `docker-compose.yml` and end-of-life dependencies. I read all the server and shared source, checked the client for unsafe HTML handling, and ran `npm audit`. Nothing was changed.
+
+## Findings, most severe first
+
+| # | OWASP 2025 | Severity | Finding |
+|---|---|---|---|
+| 1 | **A02** Security Misconfiguration | **High** (anyone on your local network) | `docker-compose.yml` publishes Mongo as `"27017:27017"`, so it listens on every network interface, and it has no password. Anyone on the same Wi-Fi can read and write the database. The tokens are encrypted, but zap documents are not. An attacker could change an enabled zap's `trigger.config.owner/repo` or its comment `body`. The next PR delivery would then post whatever they want, on any repo, using the zap owner's GitHub token (`handle-pull-request.ts:65-72` trusts the stored config). **Fix:** `"127.0.0.1:27017:27017"`, plus `MONGO_INITDB_ROOT_USERNAME/PASSWORD` with credentials in `MONGODB_URI`. |
+| 2 | **A03** Supply Chain Failures | **High** | Node 18 (end of life since April 2025) and Angular 16 (end of life since November 2024) get no more security fixes. `npm audit --omit=dev` reports 11 issues in runtime packages (5 high): Angular XSS and sanitization bypasses, and a zod memory-exhaustion bug. The full tree has 54 (2 critical: `tar`, `piscina`), all in build or dev tooling. I didn't find a reachable exploit: the client doesn't inject raw HTML and uses no SVG/MathML/i18n templates, and request bodies are capped at 100 KB. CLAUDE.md pins these versions on purpose; that's fine for a local take-home, but it would block a real deployment. |
+| 3 | **A10** Exceptional Conditions | Medium | `routes/webhooks.ts:15` uses `express.raw()` with its default 100 KB limit. A `pull_request.opened` payload with a long PR body (up to 65,536 characters, more bytes once it contains non-ASCII text or escaped newlines) can go over that. The server then returns 413, GitHub gives up on the delivery, and no run is recorded, so the user never sees the failure. **Fix:** `express.raw({ type: 'application/json', limit: '1mb' })`. GitHub caps webhook payloads at 25 MB. |
+| 4 | **A06** Insecure Design | Medium | PR title and body come from whoever opens the PR, which on a public repo is anyone. They are inserted into a comment posted *as the zap owner*. That allows spoofed content, phishing links and `@mention` spam under the owner's name, and a flood of PRs could burn through the owner's rate limit. Rendering is a single pass with `Object.hasOwn`, so tokens can't inject further tokens. **Fix:** at least neutralize `@` mentions and put `{{pr.body}}` in a quote block, or document the risk. |
+| 5 | **A01** Access Control / least privilege | Medium | The `public_repo` scope gives write access to *every* public repo the user can reach, and the token is stored for good: logout keeps it, and there is no way to delete the account or revoke the token. OAuth Apps can't ask for narrower scopes. A GitHub App with only "Webhooks + Issues: write" would. Worth listing as a known limitation. |
+| 6 | **A05** Injection (input validation) | Low | `owner`/`repo` are only `z.string().min(1)` (`shared/src/schemas/step-config.ts:6-9`). Octokit URL-encodes path parameters, but `..` passes through unchanged, so a value like `repo: ".."` can make the server call a different GitHub API path using the user's own token. The impact is limited to that user's own permissions. **Fix:** check against GitHub's name rules, e.g. `^[A-Za-z0-9-]{1,39}$` for owner and `^[A-Za-z0-9._-]{1,100}$` for repo, rejecting `.` and `..`. |
+| 7 | **A07** Authentication Failures | Low | The session cookie has no `secure` flag and the app doesn't set `trust proxy`. That's acceptable on `http://localhost`, but would need changing behind HTTPS. Sessions last a fixed 7 days with no idle timeout. `SESSION_SECRET` is only checked as non-empty (`env.ts:20`); requiring `.min(32)` would reject weak values. |
+| 8 | **A09** Logging & Alerting | Low | Security events aren't logged: bad webhook signatures, `GITHUB_AUTH_REQUIRED` session endings and 401s leave no trace. Only unexpected 500s and OAuth errors go to `console.error`. A single `console.warn` on signature failure would do; Tech-Stack.md forbids adding a logging library. |
+| 9 | **A04** Cryptographic Failures | Info | AES-256-GCM with a random 12-byte IV, a 16-byte auth tag and a strictly validated key is correct. One optional hardening: bind each ciphertext to its document (pass the document's `_id` as AAD) so values can't be swapped between records, and plan for key rotation. |
+| 10 | **A01** | Info | The webhook receiver answers 204 for an unknown hook ID and 401 for a bad signature, which reveals which hook IDs belong to enabled zaps. The impact is negligible. |
+
+## What holds up well
+
+- **A01:** Every zap route goes through `findOwnedZap(userId, id)` and returns 404 for zaps owned by someone else. Runs are filtered by both `zapId` and `userId`, and responses never include `userId`, `webhook` or tokens.
+- **A07:** The OAuth `state` parameter is checked, passport 0.7 issues a new session ID at login, and logout destroys the session in the store. Post-login redirects go only to the fixed `CLIENT_URL`, so they can't be pointed elsewhere.
+- **CSRF:** The strict `requireJson` check, CORS limited to one origin, and `SameSite=Lax` cookies work together. DELETE requests are covered because the browser's CORS pre-check blocks them from other sites.
+- **A08:** Webhooks check an HMAC signature on the raw request bytes with a constant-time comparison, using a 32-byte random secret per zap. Retries can't post twice because each GitHub delivery ID is unique in the database.
+- **A05:** Zod drops unknown fields before anything is saved, step configs are re-parsed, and an invalid ObjectId is rejected before any query. The client never inserts raw HTML, and Angular sanitizes the one `[href]` binding.
+- **A10:** A failed comment is recorded as a failed run instead of a 500, and the error handler hides internal details.
+
+I didn't verify two things. Docker wasn't running, so finding 1 comes from reading `docker-compose.yml`, not from checking the live port. Finding 3 is an estimate of payload size; I didn't reproduce it with a real oversized PR.
+
+Fixes 1, 3 and 6 are each a few lines. I can do them on a branch if you want. I can also turn this report into a shareable page.
+
+---
+
+### 🧑 User — 2026-10-26 08:01:45 (session `c4127dc5`)
+
+Fix 1, 4, 7
+
+### 🤖 Claude — 2026-10-26 08:04:15
+
+All three fixes are in on a new branch, `fix/security-hardening`. Nothing is committed yet. Shared tests (55) and server tests (252) pass, the server type-checks, and `docker compose config` accepts the new file.
+
+**Fix 1: MongoDB exposed with no password**
+- In `docker-compose.yml`, the port is now `127.0.0.1:27017:27017`, so only your machine can reach it. MongoDB also has a root user now, `zaps` / `zaps-local-dev`. That password is in the repo, which is fine because the port is local-only.
+- `server/.env.example` has the new `MONGODB_URI` with those credentials and `?authSource=admin`.
+- **You need to act on your local setup:** your `server/.env` still has the old URI without credentials. Your existing database volume also won't get the user, because MongoDB only creates it when the volume is first set up. Run `docker compose down -v && docker compose up -d`, which wipes your local data. Then update `MONGODB_URI` and run `npm run seed -w server` again. The README now explains this.
+
+**Fix 4: PR text posted under your account**
+- `buildTokenValues` in `shared/src/render.ts` now puts a zero-width space after each `@` that would start a mention in `{{pr.title}}` and `{{pr.body}}`. A PR can no longer ping `@user` or `@org/team` through your comment.
+- Email addresses, code spans and mentions you write in the template yourself (like `@{{pr.author}}`) are left alone. Tests cover each case.
+- I did not put `{{pr.body}}` in a quote block. That would change what your template produces and could double-quote if you already wrote `> {{pr.body}}`. Phishing-style links in the PR body are still possible.
+
+**Fix 7: session cookie and secret**
+- `SESSION_SECRET` must now be at least 32 characters, and the server won't start otherwise. Your current secret is 64 characters, so it's fine. The `.env.example` placeholder is now short enough to be rejected.
+- The session cookie is marked `Secure` (sent only over HTTPS), and the server trusts the HTTPS proxy in front of it, when `GITHUB_CALLBACK_URL` starts with `https://`. On localhost over plain http nothing changes. I keyed this off that existing variable instead of adding a new one, and added a test for both cases.
+- I left the fixed 7-day session with no idle timeout, because the spec sets that lifetime. Shortening it is your call.
+
+I updated `README.md`, `docs/API.md` and `docs/Data-model.md` to match; `CLAUDE.md` didn't need changes. `docs/prompt-history.md` also shows as modified, but that's from the logging hooks, not from me.
+
+Want me to commit and open a PR?
+
+---
+
+### 🧑 User — 2026-10-26 08:12:07 (session `c4127dc5`)
+
+I've started docker so you can do a final check
+
+### 🤖 Claude — 2026-10-26 08:13:01
+
+The final check passed, and you didn't lose any data.
+
+**What I found:** Docker had restarted your **old** container, which still listened on all interfaces with no password. I ran `docker compose up -d` to rebuild it from the new config; your data volume was kept.
+
+**What I verified:**
+- **Network:** Mongo now listens only on `127.0.0.1:27017`.
+- **Password:**
+  - Without credentials, Mongo refuses every request (`requires authentication`).
+  - Your old volume had no user, so I created `zaps` from inside the container. MongoDB allows this when no users exist yet, so no `down -v` was needed.
+  - With credentials, all your data is there: 1 zap, 1 user, 5 apps.
+- **Your local settings:** I changed only the `MONGODB_URI` line in your `server/.env`. Your 64-character `SESSION_SECRET` passes the new 32-character minimum.
+- **Server, end to end:**
+  - It starts and connects.
+  - `/api/me` returns `401 UNAUTHENTICATED` without a session.
+  - The sign-in start redirects to GitHub and writes the session to Mongo.
+  - The cookie is `HttpOnly; SameSite=Lax` and not `Secure`, which is correct on plain-http localhost.
+  - I stopped the server afterwards.
+
+**README update:** the upgrade note now gives the two commands I used (rebuild the container, then create the user in place) instead of `down -v`, which would have deleted your Zaps.
+
+I didn't sign in through GitHub or fire a real PR webhook, so the mention neutralizing is covered only by unit tests.
+
+Nothing is committed yet. Want me to commit and open a PR against `main`?
+
+---
+
+### 🧑 User — 2026-10-26 08:15:56 (session `c4127dc5`)
+
+instead of the upgrade note, do a "compose down -v" and change the setup so a password is created from scratch
+
+### 🤖 Claude — 2026-10-26 08:18:21
+
+MongoDB has been wiped and set up again from scratch. The password is no longer stored in the repo: each person generates their own during setup.
+
+**What changed in the setup**
+- `docker-compose.yml` takes the root user's password from `MONGO_ROOT_PASSWORD` in a root `.env` file, which Docker Compose reads automatically and git ignores. Without that value, Compose stops with an error pointing to the README instead of starting Mongo with no password.
+- There's a new committed `.env.example` at the repo root showing that one variable. In `server/.env.example`, `MONGODB_URI` now has a `<MONGO_ROOT_PASSWORD>` placeholder in place of the old fixed password.
+- README step 2 now creates the root `.env` with a random password using a one-line command, then runs `docker compose up -d`. Step 5 tells you to put the same password into `MONGODB_URI`. I removed the upgrade note; the step now says that changing the password means recreating the volume with `docker compose down -v && docker compose up -d`.
+- `docs/API.md` and the Commands section of `CLAUDE.md` are updated to match.
+
+**What I did on your machine**
+- `down -v` removed the old volume. That deleted your one zap, which was disabled with no webhook, so nothing is left behind on GitHub. Your user record went too, so you'll need to sign in again.
+- I generated a 48-character password into the root `.env`, without printing it, and set the file so only you can read it. I put the same password into `MONGODB_URI` in `server/.env`.
+- Started a fresh MongoDB and ran the seed: the catalog has 5 apps again.
+
+**Verified**
+- Connecting with no password and with the old `zaps-local-dev` password both fail.
+- The generated password works.
+- The server starts, `/api/me` returns `401` without a session, the sign-in start sets the cookie, and the 252 server tests still pass.
+
+One downside: since the password check covers every compose command, even `docker compose down` fails until the root `.env` exists. My first `down -v` failed for that reason, before the file was created. Anyone following the README creates the file in step 2 before running any compose command.
+
+Nothing is committed yet. Want me to commit and open a PR?
+
+---
+
+### 🧑 User — 2026-10-26 08:43:59 (session `c4127dc5`)
+
+yes
+
+### 🤖 Claude — 2026-10-26 08:44:28
+
+I opened PR #36 against `main` for the three security fixes: https://github.com/rimbener/sredio-zap/pull/36
+
+- **Commit:** all three fixes are in one commit on `fix/security-hardening`. Splitting them would have meant staging parts of files like `server/.env.example`, which this environment doesn't support.
+- **Not included:** `docs/prompt-history.md` is still modified locally, but those changes come from your logging hooks, not this work.
+- **PR description:** it covers what changed, how it was tested, and the choices I made where the spec says nothing. It also warns that existing checkouts now need the root `.env` and a fresh volume.
+
+The PR is open for your review. I haven't merged it.
+
+---
+
+### 🧑 User — 2026-10-26 08:44:59 (session `c4127dc5`)
+
+include prompt-history.md into the PR

@@ -17,7 +17,7 @@ export const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535),
   CLIENT_URL: z.string().url(),
   MONGODB_URI: nonEmpty.regex(/^mongodb(\+srv)?:\/\//, 'must be a mongodb:// URI'),
-  SESSION_SECRET: nonEmpty,
+  SESSION_SECRET: nonEmpty.min(32, 'must be at least 32 characters'),
   GITHUB_CLIENT_ID: nonEmpty,
   GITHUB_CLIENT_SECRET: nonEmpty,
   GITHUB_CALLBACK_URL: z.string().url(),

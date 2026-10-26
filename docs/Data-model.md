@@ -119,12 +119,14 @@ The action comments on the PR that fired the trigger, so the action config has n
 | Token | Value |
 |---|---|
 | `{{pr.number}}` | PR number |
-| `{{pr.title}}` | PR title |
-| `{{pr.body}}` | PR description (empty string if none) |
+| `{{pr.title}}` | PR title (mentions neutralized, see below) |
+| `{{pr.body}}` | PR description (empty string if none; mentions neutralized) |
 | `{{pr.url}}` | PR HTML URL |
 | `{{pr.author}}` | PR author login |
 | `{{repo.name}}` | Repo name |
 | `{{repo.fullName}}` | `owner/repo` |
+
+`{{pr.title}}` and `{{pr.body}}` are written by whoever opened the PR, but the comment is posted with the Zap owner's token. So `buildTokenValues` puts a zero-width space after every `@` that would start a user or team mention (`@alice`, `@acme/team`), and the comment can't ping anyone on the PR author's behalf. Mentions the Zap owner writes in the template itself (e.g. `@{{pr.author}}`) are untouched.
 
 The template is limited to 65,536 chars, but token values (especially `{{pr.body}}`) can make the rendered comment longer. The renderer in `/shared` truncates the **rendered** output to 65,536 chars (the last char replaced by `…` when cut), so GitHub never rejects the comment for length. It truncates by code point (`Array.from(text)`), not by JS `length` (UTF-16 units), so an emoji or other astral character is never split in half. Counting code points keeps the result at or under GitHub's limit. (It can still split a multi-part emoji, such as a ZWJ family, or a letter from its combining accent at the cut; that's cosmetic only.)
 
