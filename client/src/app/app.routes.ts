@@ -11,30 +11,44 @@ export const routes: Routes = [
   {
     path: 'login',
     canActivate: [guestGuard],
-    loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
+    loadComponent: () =>
+      import('./login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: '',
-    loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),
+    loadComponent: () =>
+      import('./layout/shell.component').then((m) => m.ShellComponent),
     children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: '/zaps',
+      },
       {
         path: 'zaps',
         canActivate: [authGuard],
-        loadComponent: () => import('./zaps/zap-list/zap-list.component').then((m) => m.ZapListComponent),
+        loadComponent: () =>
+          import('./zaps/zap-list/zap-list.component').then(
+            (m) => m.ZapListComponent,
+          ),
       },
       {
         path: 'zaps/new',
         canActivate: [authGuard],
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () =>
-          import('./zaps/zap-builder/zap-builder.component').then((m) => m.ZapBuilderComponent),
+          import('./zaps/zap-builder/zap-builder.component').then(
+            (m) => m.ZapBuilderComponent,
+          ),
       },
       {
         path: 'zaps/:id',
         canActivate: [authGuard],
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () =>
-          import('./zaps/zap-builder/zap-builder.component').then((m) => m.ZapBuilderComponent),
+          import('./zaps/zap-builder/zap-builder.component').then(
+            (m) => m.ZapBuilderComponent,
+          ),
       },
     ],
   },

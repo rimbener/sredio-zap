@@ -10,7 +10,15 @@ import { AuthService } from '../core/auth.service';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [AsyncPipe, NgIf, MatButtonModule, MatMenuModule, MatToolbarModule, RouterLink, RouterOutlet],
+  imports: [
+    AsyncPipe,
+    NgIf,
+    MatButtonModule,
+    MatMenuModule,
+    MatToolbarModule,
+    RouterLink,
+    RouterOutlet,
+  ],
   templateUrl: './shell.component.html',
   styleUrls: ['./shell.component.scss'],
 })
