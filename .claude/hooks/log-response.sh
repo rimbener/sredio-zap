@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Appends Claude's final text for the turn to docs/history.md (Stop hook).
+# Appends Claude's final text for the turn to docs/prompt-history.md (Stop hook).
 input=$(cat)
-history="${CLAUDE_PROJECT_DIR:-$(pwd)}/docs/history.md"
+history="${CLAUDE_PROJECT_DIR:-$(pwd)}/docs/prompt-history.md"
 transcript=$(jq -r '.transcript_path // ""' <<<"$input")
 
 # Prefer the field if this Claude Code version provides it; otherwise read the transcript.
